@@ -13,7 +13,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">Supabase 클라우드 DB & 기기 간 실시간 동기화 지원</p>
+        <p class="text-xs text-slate-400 mt-0.5">네이버 금융 현재가 연동 · Supabase 클라우드 실시간 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -50,20 +50,28 @@
           type="button"
           class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline self-start md:self-auto"
         >
-          📌 Supabase 초기 테이블 생성 SQL 보기
+          📌 Supabase 테이블 생성 / 현재가·종목코드 컬럼 추가 SQL 보기
         </button>
       </div>
 
       <!-- SQL 안내 박스 (기본 숨김) -->
-      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto">
-        <p class="text-amber-400 font-semibold mb-2">Supabase 대시보드 → SQL Editor에 아래 SQL을 붙여넣고 Run을 눌러주세요 (최초 1회):</p>
-        <pre class="leading-relaxed select-all">create table if not exists public.portfolios (
+      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto space-y-3">
+        <div>
+          <p class="text-amber-400 font-semibold mb-1">[기존 테이블에 현재가(current_price) 및 종목코드(stock_code) 컬럼 추가 시] SQL Editor에서 실행:</p>
+          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800">alter table public.portfolios add column if not exists current_price numeric;
+alter table public.portfolios add column if not exists stock_code text;</pre>
+        </div>
+        <div>
+          <p class="text-emerald-400 font-semibold mb-1">[처음부터 테이블을 새로 만들 때] SQL Editor에서 실행:</p>
+          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800">create table if not exists public.portfolios (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
   buy_date date not null,
   sector text not null,
+  stock_code text,
   stock_name text not null,
   buy_price numeric not null,
+  current_price numeric,
   quantity numeric not null,
   created_at timestamptz default now()
 );
@@ -76,6 +84,7 @@ create policy "Users can manage own portfolio"
   with check (auth.uid() = user_id);
 
 alter publication supabase_realtime add table public.portfolios;</pre>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -154,18 +163,25 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       </div>
     </section>
 
-    <!-- 상단 요약 카드 3종 -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <!-- 상단 요약 카드 4종 (총 매수, 총 평가, 평가손익/수익률, 섹터 비중) -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">총 투자 금액</p>
+        <p class="text-xs font-medium text-slate-400">총 매수 금액</p>
         <p id="totalInvestmentText" class="text-2xl font-bold text-white mt-1">0원</p>
+        <p id="totalCountText" class="text-xs text-slate-400 mt-1">보유 0종목 (0건)</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">보유 종목 수 (매수 건수)</p>
-        <p id="totalCountText" class="text-2xl font-bold text-indigo-400 mt-1">0종목 (0건)</p>
+        <p class="text-xs font-medium text-slate-400">총 평가 금액 (현재가 기준)</p>
+        <p id="totalEvalText" class="text-2xl font-bold text-indigo-400 mt-1">0원</p>
+        <p class="text-xs text-slate-500 mt-1">네이버 금융 현재가 연동 및 직접 수정 지원</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">섹터별 비중 요약</p>
+        <p class="text-xs font-medium text-slate-400">총 평가 손익 (수익률)</p>
+        <p id="totalProfitText" class="text-2xl font-bold text-slate-200 mt-1">0원 (0.00%)</p>
+        <p class="text-xs text-slate-500 mt-1">현재가 - 매수단가 기준</p>
+      </div>
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
+        <p class="text-xs font-medium text-slate-400">섹터별 비중 요약 (평가액 기준)</p>
         <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-300">
           <span class="text-slate-500">등록된 내역이 없습니다.</span>
         </div>
@@ -178,7 +194,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       <div class="lg:col-span-7 space-y-6">
         <!-- 1. 주식 매수 내역 입력 폼 -->
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-          <h2 class="text-base font-bold text-white mb-4">➕ 주식 매수 내역 추가</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white">➕ 주식 매수 내역 추가</h2>
+            <span class="text-xs text-emerald-400">💡 종목코드(예: 005930)나 종목명 입력 후 [시세 조회]를 누르면 현재가가 자동 입력됩니다</span>
+          </div>
           <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
               <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
@@ -209,6 +228,25 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               </datalist>
             </div>
             <div>
+              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목코드 (선택, 예: 005930)</label>
+              <div class="flex gap-1.5">
+                <input
+                  id="stockCode"
+                  type="text"
+                  placeholder="005930, 0052D0"
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  id="lookupFormPriceBtn"
+                  type="button"
+                  class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-2.5 py-2 rounded-lg whitespace-nowrap transition"
+                  title="네이버 금융에서 종목명과 현재가를 가져옵니다"
+                >
+                  시세조회
+                </button>
+              </div>
+            </div>
+            <div>
               <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명</label>
               <input
                 id="stockName"
@@ -231,6 +269,17 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               />
             </div>
             <div>
+              <label for="currentPrice" class="block text-xs font-medium text-slate-400 mb-1">현재가 (원, 자동/수동)</label>
+              <input
+                id="currentPrice"
+                type="number"
+                min="1"
+                step="any"
+                placeholder="미입력 시 네이버 시세/매수가"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
               <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량 (주)</label>
               <input
                 id="quantity"
@@ -242,10 +291,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            <div class="flex items-end">
+            <div class="sm:col-span-1 lg:col-span-2 flex items-end justify-end">
               <button
                 type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-4 rounded-lg transition shadow-sm"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-6 rounded-lg transition shadow-sm"
               >
                 포트폴리오에 추가
               </button>
@@ -255,21 +304,30 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
         <!-- 2. 포트폴리오 현황 테이블 -->
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역</h2>
-            <span id="storageNoticeText" class="text-xs text-slate-400">브라우저에 자동 저장됩니다</span>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역 & 현재가 수익률</h2>
+              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">네이버 금융 모바일 API(<code class="text-emerald-400">m.stock.naver.com</code>)로 실시간 현재가를 가져옵니다</p>
+            </div>
+            <button
+              id="naverFetchPricesBtn"
+              type="button"
+              class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
+            >
+              🔄 네이버 금융 현재가 일괄 업데이트
+            </button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-                  <th class="py-2.5 px-3">섹터</th>
-                  <th class="py-2.5 px-3">종목명</th>
-                  <th class="py-2.5 px-3">매수일</th>
-                  <th class="py-2.5 px-3 text-right">매수가</th>
-                  <th class="py-2.5 px-3 text-right">수량</th>
-                  <th class="py-2.5 px-3 text-right">총 매수금액(비중)</th>
-                  <th class="py-2.5 px-3 text-center">관리</th>
+                  <th class="py-2.5 px-2.5">섹터/종목(코드)</th>
+                  <th class="py-2.5 px-2.5 text-right">매수단가</th>
+                  <th class="py-2.5 px-2.5 text-right">현재가 (네이버/수정)</th>
+                  <th class="py-2.5 px-2.5 text-right">수량</th>
+                  <th class="py-2.5 px-2.5 text-right">평가금액 (비중)</th>
+                  <th class="py-2.5 px-2.5 text-right">평가손익 (수익률)</th>
+                  <th class="py-2.5 px-2.5 text-center">관리</th>
                 </tr>
               </thead>
               <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
@@ -280,28 +338,28 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       <!-- 우측 영역: Gemini AI 투자 상담 챗봇 (5칸) -->
       <div class="lg:col-span-5">
-        <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col h-[620px]">
+        <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col h-[650px]">
           <div class="p-4 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 class="text-base font-bold text-white">🤖 Gemini AI 포트폴리오 상담소</h2>
-              <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · 내 포트폴리오 자동 연동</p>
+              <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · 매수가·현재가·수익률 자동 연동</p>
             </div>
           </div>
 
           <div class="px-4 py-2.5 bg-slate-950/50 border-b border-slate-800 flex flex-wrap gap-1.5">
             <button
               type="button"
-              data-prompt="내 포트폴리오 섹터 분산 상태를 점검하고 조언해줘."
+              data-prompt="내 포트폴리오 섹터 분산 상태와 수익률을 점검하고 조언해줘."
               class="quick-prompt-btn text-xs bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-indigo-800/70 px-2.5 py-1 rounded-full transition"
             >
-              💡 내 포트폴리오 섹터 분산 조언해줘
+              💡 섹터 분산 & 수익률 조언해줘
             </button>
             <button
               type="button"
-              data-prompt="현재 보유 종목들의 투자 비중을 점검하고 리밸런싱 의견을 알려줘."
+              data-prompt="현재 보유 종목들의 투자 비중과 평가손익을 점검하고 리밸런싱 의견을 알려줘."
               class="quick-prompt-btn text-xs bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-indigo-800/70 px-2.5 py-1 rounded-full transition"
             >
-              ⚖️ 현재 비중 점검해줘
+              ⚖️ 현재 비중 & 손익 점검해줘
             </button>
             <button
               type="button"
@@ -314,7 +372,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
           <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm">
             <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 shadow-sm">
-              안녕하세요! Supabase에 로그인하면 스마트폰과 PC 어디서나 동일한 포트폴리오를 실시간으로 관리하고 AI 상담을 받을 수 있습니다.
+              안녕하세요! 네이버 금융에서 불러온 <strong>현재가</strong>와 <strong>수익률</strong>까지 함께 분석해 맞춤형 포트폴리오 상담을 도와드립니다.
             </div>
           </div>
 
@@ -341,6 +399,8 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
   <script>
     const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
+    const STORAGE_KEY_CURRENT_PRICES = 'my_stock_current_prices_v1';
+    const STORAGE_KEY_STOCK_CODES = 'my_stock_codes_v1';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SB_URL = 'my_supabase_url_v1';
     const STORAGE_KEY_SB_KEY = 'my_supabase_anon_key_v1';
@@ -374,11 +434,17 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     const stockForm = document.getElementById('stockForm');
     const buyDateInput = document.getElementById('buyDate');
     const sectorInput = document.getElementById('sector');
+    const stockCodeInput = document.getElementById('stockCode');
+    const lookupFormPriceBtn = document.getElementById('lookupFormPriceBtn');
     const stockNameInput = document.getElementById('stockName');
     const buyPriceInput = document.getElementById('buyPrice');
+    const currentPriceInput = document.getElementById('currentPrice');
     const quantityInput = document.getElementById('quantity');
+    const naverFetchPricesBtn = document.getElementById('naverFetchPricesBtn');
 
     const totalInvestmentText = document.getElementById('totalInvestmentText');
+    const totalEvalText = document.getElementById('totalEvalText');
+    const totalProfitText = document.getElementById('totalProfitText');
     const totalCountText = document.getElementById('totalCountText');
     const sectorSummaryBox = document.getElementById('sectorSummaryBox');
     const portfolioTableBody = document.getElementById('portfolioTableBody');
@@ -408,10 +474,157 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .replace(/'/g, '&#039;');
     }
 
+    /**
+     * 브라우저 환경에서 CORS 제한 없이 URL JSON을 가져오는 도우미 함수
+     */
+    async function fetchJsonWithCorsFallback(targetUrl) {
+      const proxyUrls = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      ];
+
+      // 1) 직접 호출 시도
+      try {
+        const directRes = await fetch(targetUrl);
+        if (directRes.ok) {
+          return await directRes.json();
+        }
+      } catch (_e) {
+        // 브라우저 CORS 차단 시 프록시로 자동 전환
+      }
+
+      // 2) CORS 프록시 순차 시도
+      let lastError = null;
+      for (const pUrl of proxyUrls) {
+        try {
+          const res = await fetch(pUrl);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error('네트워크 요청 실패');
+    }
+
+    /**
+     * 종목명(예: "삼성전자")으로 네이버 금융 종목코드(예: "005930") 자동 검색
+     */
+    async function searchStockCodeByName(queryName) {
+      if (!queryName) return null;
+      const clean = String(queryName).trim();
+      // 이미 6자리 종목코드 형태(005930, 0052D0 등)인 경우 바로 반환
+      if (/^[0-9A-Za-z]{6}$/.test(clean) && /\d/.test(clean)) {
+        return clean.toUpperCase();
+      }
+      if (/^\d{1,5}$/.test(clean)) {
+        return clean.padStart(6, '0');
+      }
+
+      try {
+        const acUrl = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(clean)}&target=stock,etf,index`;
+        const data = await fetchJsonWithCorsFallback(acUrl);
+        const items = data?.items || [];
+        if (items.length > 0 && items[0].code) {
+          return String(items[0].code).trim();
+        }
+      } catch (err) {
+        console.warn('종목코드 자동 검색 실패:', err);
+      }
+      return null;
+    }
+
+    /**
+     * 사용자 제공 NAVERPRICE 로직을 웹 브라우저용 비동기 함수로 구현
+     * 네이버 금융 모바일 API(https://m.stock.naver.com/api/stock/${code}/basic)를 호출하여
+     * { price, stockName, code } 를 반환합니다.
+     */
+    async function NAVERPRICE(stockCodeOrName) {
+      if (!stockCodeOrName) {
+        throw new Error('종목코드 또는 종목명 입력 필요');
+      }
+
+      let code = String(stockCodeOrName).trim();
+      // 앞자리 0이 누락된 6자리 미만 숫자 코드 보정
+      if (/^\d{1,5}$/.test(code)) {
+        code = code.padStart(6, '0');
+      } else if (!/^[0-9A-Za-z]{6}$/.test(code) || !/\d/.test(code)) {
+        // 종목명(한글 등)이 들어온 경우 종목코드로 먼저 변환
+        const foundCode = await searchStockCodeByName(code);
+        if (!foundCode) {
+          throw new Error(`'${code}'의 종목코드를 찾을 수 없습니다. 6자리 종목코드를 입력해 주세요.`);
+        }
+        code = foundCode;
+      }
+
+      const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
+      const data = await fetchJsonWithCorsFallback(url);
+
+      // 종목에 따라 nowPrice 또는 closePrice 필드에 현재가가 들어옵니다.
+      const priceStr = data?.nowPrice || data?.closePrice;
+      if (!priceStr) {
+        throw new Error(`'${code}' 가격 정보 없음`);
+      }
+
+      const price = parseFloat(String(priceStr).replace(/,/g, ''));
+      if (isNaN(price)) {
+        throw new Error(`'${code}' 가격 파싱 실패`);
+      }
+
+      return {
+        code: data?.itemCode || code,
+        stockName: data?.stockName || '',
+        price: price,
+      };
+    }
+
+    // 로컬 현재가 및 종목코드 보조 캐시
+    function getLocalPriceMap() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENT_PRICES) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function setLocalPrice(id, price) {
+      const map = getLocalPriceMap();
+      map[id] = Number(price);
+      localStorage.setItem(STORAGE_KEY_CURRENT_PRICES, JSON.stringify(map));
+    }
+
+    function getLocalCodeMap() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_STOCK_CODES) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function setLocalCode(id, code) {
+      if (!code) return;
+      const map = getLocalCodeMap();
+      map[id] = String(code).trim();
+      localStorage.setItem(STORAGE_KEY_STOCK_CODES, JSON.stringify(map));
+    }
+
     function loadLocalPortfolio() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
-        portfolio = saved ? JSON.parse(saved) : [];
+        const list = saved ? JSON.parse(saved) : [];
+        const priceMap = getLocalPriceMap();
+        const codeMap = getLocalCodeMap();
+        portfolio = list.map((item) => ({
+          ...item,
+          code: item.code || codeMap[item.id] || '',
+          currentPrice:
+            item.currentPrice !== undefined && item.currentPrice !== null
+              ? Number(item.currentPrice)
+              : priceMap[item.id] !== undefined
+              ? Number(priceMap[item.id])
+              : Number(item.price),
+        }));
       } catch (err) {
         portfolio = [];
       }
@@ -453,7 +666,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (isCloudActive && currentUser) {
         syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
-        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email})`;
+        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email}) · 네이버 금융 현재가 연동`;
         userEmailText.textContent = currentUser.email;
         authFormArea.classList.add('hidden');
         signInBtn.classList.add('hidden');
@@ -462,7 +675,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       } else {
         syncBadge.textContent = '로컬 모드 (브라우저 저장)';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
-        storageNoticeText.textContent = '브라우저(localStorage)에 자동 저장됩니다';
+        storageNoticeText.textContent = '네이버 금융 모바일 API로 실시간 현재가를 가져옵니다';
         userEmailText.textContent = '로그아웃 상태';
         authFormArea.classList.remove('hidden');
         signInBtn.classList.remove('hidden');
@@ -497,18 +710,31 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       if (error) {
         console.error('클라우드 데이터 조회 실패:', error.message);
-        alert('데이터 조회 실패: ' + error.message + '\n(상단의 초기 테이블 생성 SQL을 실행했는지 확인해 주세요.)');
+        alert('데이터 조회 실패: ' + error.message);
         return;
       }
 
-      portfolio = (data || []).map((row) => ({
-        id: row.id,
-        date: row.buy_date,
-        sector: row.sector,
-        name: row.stock_name,
-        price: Number(row.buy_price),
-        quantity: Number(row.quantity),
-      }));
+      const priceMap = getLocalPriceMap();
+      const codeMap = getLocalCodeMap();
+      portfolio = (data || []).map((row) => {
+        const buyPrice = Number(row.buy_price);
+        const curPrice =
+          row.current_price !== undefined && row.current_price !== null
+            ? Number(row.current_price)
+            : priceMap[row.id] !== undefined
+            ? Number(priceMap[row.id])
+            : buyPrice;
+        return {
+          id: row.id,
+          date: row.buy_date,
+          sector: row.sector,
+          code: row.stock_code || codeMap[row.id] || '',
+          name: row.stock_name,
+          price: buyPrice,
+          currentPrice: curPrice,
+          quantity: Number(row.quantity),
+        };
+      });
       renderPortfolio();
     }
 
@@ -551,7 +777,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       localStorage.setItem(STORAGE_KEY_SB_URL, url);
       localStorage.setItem(STORAGE_KEY_SB_KEY, key);
       await initSupabase();
-      alert('Supabase 연결 정보가 저장되었습니다. 이제 로그인 또는 회원가입을 진행해 주세요.');
+      alert('Supabase 연결 정보가 저장되었습니다.');
     });
 
     signInBtn.addEventListener('click', async () => {
@@ -588,7 +814,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (error) {
         alert('회원가입 실패: ' + error.message);
       } else {
-        alert('회원가입 요청이 완료되었습니다! (이메일 인증 설정 여부에 따라 바로 로그인되거나 확인 메일이 발송됩니다.)');
+        alert('회원가입 요청이 완료되었습니다!');
       }
     });
 
@@ -622,26 +848,73 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       alert('Gemini API 키가 브라우저에 저장되었습니다.');
     });
 
+    // 입력 폼에서 [시세조회] 버튼 클릭 시 네이버 금융에서 종목명·현재가 자동 채우기
+    lookupFormPriceBtn.addEventListener('click', async () => {
+      const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
+      if (!query) {
+        alert('종목코드(예: 005930) 또는 종목명(예: 삼성전자)을 먼저 입력해 주세요.');
+        stockCodeInput.focus();
+        return;
+      }
+      const origText = lookupFormPriceBtn.textContent;
+      lookupFormPriceBtn.disabled = true;
+      lookupFormPriceBtn.textContent = '조회중';
+
+      try {
+        const result = await NAVERPRICE(query);
+        stockCodeInput.value = result.code;
+        if (result.stockName && !stockNameInput.value.trim()) {
+          stockNameInput.value = result.stockName;
+        }
+        currentPriceInput.value = result.price;
+        if (!buyPriceInput.value) {
+          buyPriceInput.value = result.price;
+        }
+      } catch (err) {
+        alert('네이버 시세 조회 오류: ' + err.message);
+      } finally {
+        lookupFormPriceBtn.disabled = false;
+        lookupFormPriceBtn.textContent = origText;
+      }
+    });
+
     function renderPortfolio() {
-      const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalBuyAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalEvalAmount = portfolio.reduce(
+        (sum, item) => sum + (item.currentPrice ?? item.price) * item.quantity,
+        0
+      );
+      const totalProfit = totalEvalAmount - totalBuyAmount;
+      const totalProfitRate = totalBuyAmount > 0 ? (totalProfit / totalBuyAmount) * 100 : 0;
       const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
 
-      totalInvestmentText.textContent = formatKRW(totalAmount);
-      totalCountText.textContent = `${uniqueStocks}종목 (${portfolio.length}건)`;
+      totalInvestmentText.textContent = formatKRW(totalBuyAmount);
+      totalEvalText.textContent = formatKRW(totalEvalAmount);
+      totalCountText.textContent = `보유 ${uniqueStocks}종목 (${portfolio.length}건)`;
 
-      if (portfolio.length === 0 || totalAmount === 0) {
+      const sign = totalProfit > 0 ? '+' : '';
+      totalProfitText.textContent = `${sign}${formatKRW(totalProfit)} (${sign}${totalProfitRate.toFixed(2)}%)`;
+      if (totalProfit > 0) {
+        totalProfitText.className = 'text-2xl font-bold text-rose-400 mt-1';
+      } else if (totalProfit < 0) {
+        totalProfitText.className = 'text-2xl font-bold text-sky-400 mt-1';
+      } else {
+        totalProfitText.className = 'text-2xl font-bold text-slate-200 mt-1';
+      }
+
+      if (portfolio.length === 0 || totalEvalAmount === 0) {
         sectorSummaryBox.innerHTML = '<span class="text-slate-500">등록된 내역이 없습니다.</span>';
       } else {
         const sectorMap = {};
         portfolio.forEach((item) => {
-          const amt = item.price * item.quantity;
-          sectorMap[item.sector] = (sectorMap[item.sector] || 0) + amt;
+          const evalAmt = (item.currentPrice ?? item.price) * item.quantity;
+          sectorMap[item.sector] = (sectorMap[item.sector] || 0) + evalAmt;
         });
 
         const sortedSectors = Object.entries(sectorMap).sort((a, b) => b[1] - a[1]);
         sectorSummaryBox.innerHTML = sortedSectors
           .map(([sec, amt]) => {
-            const ratio = ((amt / totalAmount) * 100).toFixed(1);
+            const ratio = ((amt / totalEvalAmount) * 100).toFixed(1);
             return `<span class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/80 px-2 py-0.5 rounded-md font-medium">${escapeHtml(sec)} ${ratio}%</span>`;
           })
           .join('');
@@ -660,22 +933,49 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       portfolioTableBody.innerHTML = portfolio
         .map((item) => {
-          const itemTotal = item.price * item.quantity;
-          const weight = totalAmount > 0 ? ((itemTotal / totalAmount) * 100).toFixed(1) : '0.0';
+          const curPrice = item.currentPrice ?? item.price;
+          const buyTotal = item.price * item.quantity;
+          const evalTotal = curPrice * item.quantity;
+          const profit = evalTotal - buyTotal;
+          const profitRate = buyTotal > 0 ? (profit / buyTotal) * 100 : 0;
+          const weight = totalEvalAmount > 0 ? ((evalTotal / totalEvalAmount) * 100).toFixed(1) : '0.0';
+
+          const pSign = profit > 0 ? '+' : '';
+          const profitColor =
+            profit > 0 ? 'text-rose-400' : profit < 0 ? 'text-sky-400' : 'text-slate-400';
+
           return `
             <tr class="hover:bg-slate-800/60 transition">
-              <td class="py-3 px-3">
-                <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+              <td class="py-3 px-2.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+                  <span class="font-semibold text-white">${escapeHtml(item.name)}</span>
+                  ${item.code ? `<span class="text-[11px] text-emerald-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
+                </div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(item.date)}</div>
               </td>
-              <td class="py-3 px-3 font-semibold text-white">${escapeHtml(item.name)}</td>
-              <td class="py-3 px-3 text-xs text-slate-400">${escapeHtml(item.date)}</td>
-              <td class="py-3 px-3 text-right text-slate-200">${Number(item.price).toLocaleString('ko-KR')}원</td>
-              <td class="py-3 px-3 text-right text-slate-200">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
-              <td class="py-3 px-3 text-right font-semibold text-white">
-                ${formatKRW(itemTotal)}
-                <span class="text-xs text-indigo-400 font-normal">(${weight}%)</span>
+              <td class="py-3 px-2.5 text-right text-slate-300">${Number(item.price).toLocaleString('ko-KR')}원</td>
+              <td class="py-3 px-2.5 text-right">
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  value="${curPrice}"
+                  onchange="updateCurrentPrice('${item.id}', this.value)"
+                  class="w-24 sm:w-28 text-right text-xs px-2 py-1 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  title="현재가를 수정하면 수익률이 자동 계산됩니다"
+                />
               </td>
-              <td class="py-3 px-3 text-center">
+              <td class="py-3 px-2.5 text-right text-slate-300">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
+              <td class="py-3 px-2.5 text-right font-semibold text-white">
+                <div>${formatKRW(evalTotal)}</div>
+                <div class="text-[11px] text-indigo-400 font-normal">비중 ${weight}%</div>
+              </td>
+              <td class="py-3 px-2.5 text-right font-semibold ${profitColor}">
+                <div>${pSign}${formatKRW(profit)}</div>
+                <div class="text-[11px]">(${pSign}${profitRate.toFixed(2)}%)</div>
+              </td>
+              <td class="py-3 px-2.5 text-center">
                 <button
                   type="button"
                   onclick="deleteStockItem('${item.id}')"
@@ -690,50 +990,183 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .join('');
     }
 
+    // 현재가 및 종목코드 개별 업데이트 함수
+    window.updateCurrentPrice = async function (id, newPriceStr, optionalCode) {
+      const newPrice = parseFloat(newPriceStr);
+      if (isNaN(newPrice) || newPrice <= 0) {
+        renderPortfolio();
+        return;
+      }
+
+      setLocalPrice(id, newPrice);
+      if (optionalCode) {
+        setLocalCode(id, optionalCode);
+      }
+
+      portfolio = portfolio.map((item) =>
+        String(item.id) === String(id)
+          ? { ...item, currentPrice: newPrice, code: optionalCode || item.code }
+          : item
+      );
+
+      if (supabaseClient && currentUser) {
+        const updatePayload = { current_price: newPrice };
+        if (optionalCode) updatePayload.stock_code = optionalCode;
+
+        const { error } = await supabaseClient
+          .from('portfolios')
+          .update(updatePayload)
+          .eq('id', id)
+          .eq('user_id', currentUser.id);
+
+        if (error) {
+          console.warn('Supabase 추가 컬럼 미생성 상태(로컬 캐시로 유지됨):', error.message);
+        }
+      } else {
+        saveLocalPortfolio();
+      }
+
+      renderPortfolio();
+    };
+
+    // 네이버 금융 모바일 API(NAVERPRICE)를 이용한 전체 종목 현재가 일괄 업데이트
+    naverFetchPricesBtn.addEventListener('click', async () => {
+      if (portfolio.length === 0) {
+        alert('먼저 포트폴리오에 종목을 추가해 주세요.');
+        return;
+      }
+
+      const origText = naverFetchPricesBtn.textContent;
+      naverFetchPricesBtn.disabled = true;
+      naverFetchPricesBtn.textContent = '⏳ 네이버 금융 시세 조회 중...';
+
+      let successCount = 0;
+      const failList = [];
+
+      try {
+        for (const item of portfolio) {
+          const targetQuery = item.code || item.name;
+          try {
+            const res = await NAVERPRICE(targetQuery);
+            await window.updateCurrentPrice(item.id, res.price, res.code);
+            successCount++;
+          } catch (err) {
+            console.warn(`${item.name} 시세 조회 실패:`, err.message);
+            failList.push(`${item.name}(${err.message})`);
+          }
+        }
+
+        if (failList.length === 0) {
+          alert(`총 ${successCount}건의 현재가를 네이버 금융에서 성공적으로 업데이트했습니다!`);
+        } else {
+          alert(
+            `성공: ${successCount}건 / 실패: ${failList.length}건\n실패 항목: ${failList.join(', ')}`
+          );
+        }
+      } finally {
+        naverFetchPricesBtn.disabled = false;
+        naverFetchPricesBtn.textContent = origText;
+      }
+    });
+
+    // 종목 추가 (추가 시 현재가가 비어 있으면 NAVERPRICE 자동 조회 시도)
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = buyDateInput.value;
       const sector = sectorInput.value.trim();
-      const name = stockNameInput.value.trim();
+      let code = stockCodeInput.value.trim();
+      let name = stockNameInput.value.trim();
       const price = parseFloat(buyPriceInput.value);
+      const curPriceRaw = parseFloat(currentPriceInput.value);
       const quantity = parseFloat(quantityInput.value);
 
       if (!sector || !name || isNaN(price) || isNaN(quantity)) {
-        alert('모든 입력 항목을 올바르게 입력해 주세요.');
+        alert('모든 필수 입력 항목을 올바르게 입력해 주세요.');
         return;
       }
 
+      let currentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0 ? curPriceRaw : null;
+
+      // 현재가를 입력하지 않았을 경우 네이버 금융에서 자동 조회 시도
+      if (!currentPrice) {
+        try {
+          const naverInfo = await NAVERPRICE(code || name);
+          currentPrice = naverInfo.price;
+          if (!code && naverInfo.code) {
+            code = naverInfo.code;
+          }
+        } catch (_err) {
+          currentPrice = price;
+        }
+      }
+
       if (supabaseClient && currentUser) {
-        const { error } = await supabaseClient.from('portfolios').insert([
-          {
-            user_id: currentUser.id,
-            buy_date: date,
-            sector: sector,
-            stock_name: name,
-            buy_price: price,
-            quantity: quantity,
-          },
-        ]);
+        let { data, error } = await supabaseClient
+          .from('portfolios')
+          .insert([
+            {
+              user_id: currentUser.id,
+              buy_date: date,
+              sector: sector,
+              stock_code: code || null,
+              stock_name: name,
+              buy_price: price,
+              current_price: currentPrice,
+              quantity: quantity,
+            },
+          ])
+          .select();
+
+        // 만약 아직 current_price / stock_code 컬럼을 추가하지 않은 경우 기본 컬럼만으로 재시도
+        if (error && error.message && (error.message.includes('current_price') || error.message.includes('stock_code'))) {
+          const retry = await supabaseClient
+            .from('portfolios')
+            .insert([
+              {
+                user_id: currentUser.id,
+                buy_date: date,
+                sector: sector,
+                stock_name: name,
+                buy_price: price,
+                quantity: quantity,
+              },
+            ])
+            .select();
+          data = retry.data;
+          error = retry.error;
+        }
+
         if (error) {
           alert('클라우드 저장 실패: ' + error.message);
           return;
         }
+        if (data && data[0]) {
+          setLocalPrice(data[0].id, currentPrice);
+          if (code) setLocalCode(data[0].id, code);
+        }
         await fetchCloudPortfolio();
       } else {
+        const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
+        setLocalPrice(newId, currentPrice);
+        if (code) setLocalCode(newId, code);
         portfolio.unshift({
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+          id: newId,
           date,
           sector,
+          code,
           name,
           price,
+          currentPrice,
           quantity,
         });
         saveLocalPortfolio();
         renderPortfolio();
       }
 
+      stockCodeInput.value = '';
       stockNameInput.value = '';
       buyPriceInput.value = '';
+      currentPriceInput.value = '';
       quantityInput.value = '';
       stockNameInput.focus();
     });
@@ -761,14 +1194,25 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (portfolio.length === 0) {
         return '현재 등록된 주식 포트폴리오 내역이 없습니다.';
       }
-      const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalBuy = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalEval = portfolio.reduce(
+        (sum, item) => sum + (item.currentPrice ?? item.price) * item.quantity,
+        0
+      );
+      const totalProfit = totalEval - totalBuy;
+      const totalRate = totalBuy > 0 ? ((totalProfit / totalBuy) * 100).toFixed(2) : '0.00';
+
       const lines = portfolio.map((item, idx) => {
-        const subTotal = item.price * item.quantity;
-        const ratio = ((subTotal / totalAmount) * 100).toFixed(1);
-        return `${idx + 1}. [${item.sector}] ${item.name} - 매수일: ${item.date}, 매수단가: ${item.price.toLocaleString()}원, 수량: ${item.quantity}주, 매수금액: ${subTotal.toLocaleString()}원 (비중 ${ratio}%)`;
+        const curPrice = item.currentPrice ?? item.price;
+        const buyAmt = item.price * item.quantity;
+        const evalAmt = curPrice * item.quantity;
+        const profit = evalAmt - buyAmt;
+        const profitRate = buyAmt > 0 ? ((profit / buyAmt) * 100).toFixed(2) : '0.00';
+        const ratio = totalEval > 0 ? ((evalAmt / totalEval) * 100).toFixed(1) : '0.0';
+        return `${idx + 1}. [${item.sector}] ${item.name}${item.code ? `(${item.code})` : ''} - 매수단가: ${item.price.toLocaleString()}원, 현재가: ${curPrice.toLocaleString()}원, 수량: ${item.quantity}주, 평가금액: ${evalAmt.toLocaleString()}원 (비중 ${ratio}%), 수익률: ${profitRate}%`;
       });
 
-      return `총 투자금액: ${totalAmount.toLocaleString()}원\n보유 내역:\n${lines.join('\n')}`;
+      return `총 매수금액: ${totalBuy.toLocaleString()}원 / 총 평가금액: ${totalEval.toLocaleString()}원 / 총 수익률: ${totalRate}%\n보유 내역:\n${lines.join('\n')}`;
     }
 
     function appendMessage(role, text) {
@@ -793,12 +1237,12 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
 
       appendMessage('user', userQuestion);
-      const loadingBubble = appendMessage('ai', '포트폴리오를 분석하여 답변을 작성하고 있습니다...');
+      const loadingBubble = appendMessage('ai', '포트폴리오와 수익률을 분석하여 답변을 작성하고 있습니다...');
       chatSubmitBtn.disabled = true;
 
       const portfolioContext = buildPortfolioContextText();
       const systemPrompt = `당신은 친절하고 전문적인 개인 주식 포트폴리오 투자 상담 AI입니다.
-아래 사용자의 현재 포트폴리오 현황을 참고하여 질문에 알기 쉽게 한국어로 답변해 주세요.
+아래 사용자의 현재 포트폴리오 현황(매수가, 현재가, 평가금액, 수익률, 비중)을 참고하여 질문에 알기 쉽게 한국어로 답변해 주세요.
 초보 투자자도 이해하기 쉬운 용어를 사용하고, 핵심 내용을 항목별로 깔끔하게 정리해 주세요.
 
 [사용자 포트폴리오 데이터]
