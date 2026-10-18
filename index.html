@@ -12,7 +12,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 구글 시트(거래내역·포트폴리오) 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 실시간 종목 자동완성 및 구글 시트 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -57,7 +57,7 @@
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ [거래내역] 시트에는 거래내역을 시간 역순('26/08/15 형식)으로 기록하고, [포트폴리오] 시트에는 보유수량이 0보다 큰 종목만 자동 집계합니다!
+            ✅ [거래내역] 시트('26/08/15 형식) + [포트폴리오] 시트 자동 집계 + 네이버/야후 파이낸스 종목 자동완성 연동 코드입니다!
           </p>
           <button
             id="copyAppsScriptBtn"
@@ -136,6 +136,66 @@ function toShortDateDisplay(isoStr) {
   return norm;
 }
 
+// 국내주식(네이버 금융 자동완성) 및 미국주식(Yahoo Finance 자동완성) 검색
+function searchStockApi(query, market) {
+  var q = String(query || '').trim();
+  if (!q) return [];
+  var isKr = market === 'KRW' || /[가-힣]/.test(q) || /^\d+$/.test(q);
+  var results = [];
+
+  if (isKr) {
+    try {
+      var naverUrl = 'https://ac.finance.naver.com/ac?q=' + encodeURIComponent(q) + '&amp;target=stock';
+      var resp = UrlFetchApp.fetch(naverUrl, {
+        muteHttpExceptions: true,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      var data = JSON.parse(resp.getContentText());
+      var list = (data &amp;&amp; data.items &amp;&amp; data.items[0]) ? data.items[0] : [];
+      for (var i = 0; i &lt; list.length; i++) {
+        var row = list[i];
+        if (!row || row.length &lt; 2) continue;
+        var a0 = String(row[0] || '').trim();
+        var a1 = String(row[1] || '').trim();
+        var code = /^\d{4}[0-9A-Z]{2}$/.test(a0) ? a0 : a1;
+        var name = (code === a0) ? a1 : a0;
+        var mkt = String(row[2] || 'KRX');
+        if (code &amp;&amp; name) {
+          results.push({ code: code, name: name, exchange: mkt, currency: 'KRW' });
+        }
+      }
+    } catch (_e) {}
+  }
+
+  if (!isKr || results.length === 0) {
+    try {
+      var yahooUrl = 'https://query1.finance.yahoo.com/v1/finance/search?q=' + encodeURIComponent(q) + '&amp;quotesCount=8&amp;newsCount=0';
+      var yResp = UrlFetchApp.fetch(yahooUrl, {
+        muteHttpExceptions: true,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      var yData = JSON.parse(yResp.getContentText());
+      var quotes = (yData &amp;&amp; yData.quotes) ? yData.quotes : [];
+      for (var j = 0; j &lt; quotes.length; j++) {
+        var qt = quotes[j];
+        if (!qt || !qt.symbol) continue;
+        var sym = String(qt.symbol).trim();
+        var nm = String(qt.shortname || qt.longname || sym).trim();
+        var exch = String(qt.exchDisp || qt.exchange || 'US').trim();
+        var isKorSym = /\.(KS|KQ)$/i.test(sym);
+        results.push({
+          code: isKorSym ? sym.replace(/\.(KS|KQ)$/i, '') : sym,
+          name: nm,
+          exchange: exch,
+          currency: isKorSym ? 'KRW' : 'USD'
+        });
+      }
+    } catch (_e2) {}
+  }
+
+  return results.slice(0, 10);
+}
+
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 > 0, 평균단가 자동계산) 갱신
 function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
   var lastRow = tradesSheet.getLastRow();
@@ -160,7 +220,6 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
     }
   }
 
-  // 1) 거래내역 시트: 시간의 역순(최신순) 정렬
   trades.sort(function(a, b) {
     if (a.date !== b.date) return a.date &lt; b.date ? 1 : -1;
     return (b.createdAt || 0) - (a.createdAt || 0);
@@ -171,7 +230,6 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
   }
   if (trades.length &gt; 0) {
     var tradeRows = trades.map(function(t) {
-      // 구글 시트에서 맨 앞 작은따옴표(')가 이스케이프 처리되어 사라지지 않도록 ''26/08/15 로 기록
       return [t.id, "'" + toShortDateDisplay(t.date), t.type, t.currency, t.sector, t.code, t.name, t.price, t.quantity, t.createdAt];
     });
     tradesSheet.getRange(2, 1, tradeRows.length, 10).setValues(tradeRows);
@@ -193,7 +251,6 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
     }
   }
 
-  // 2) 티커 기준으로 과거순 계산하여 평균단가 및 현재 보유수량(&gt;0) 집계
   var chrono = trades.slice().reverse();
   var map = {};
   for (var c = 0; c &lt; chrono.length; c++) {
@@ -324,6 +381,14 @@ function readState(tradesSheet, pfSheet) {
 }
 
 function doGet(e) {
+  var searchQuery = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.search) ? e.parameter.search.trim() : '';
+  if (searchQuery) {
+    var mkt = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.market) ? e.parameter.market.trim() : '';
+    var results = searchStockApi(searchQuery, mkt);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, results: results }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   var sheets = getOrCreateSheets();
   var ticker = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.ticker) ? e.parameter.ticker.trim() : '';
   if (ticker) {
@@ -513,7 +578,7 @@ function doPost(e) {
           <div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
               <h2 class="text-base font-bold text-white">➕ 매수/매도 내역</h2>
-              <span class="text-xs text-emerald-400">💡 티커 기준으로 보유수량(&gt;0)과 평균단가가 포트폴리오에 자동 반영됩니다</span>
+              <span class="text-xs text-emerald-400">💡 국내주식은 <strong>종목명</strong>(네이버금융), 미국주식은 <strong>티커</strong>(Yahoo/Finnhub)로 자동 검색</span>
             </div>
             <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
@@ -542,8 +607,8 @@ function doPost(e) {
                     id="marketCurrency"
                     class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="KRW">KRW</option>
-                    <option value="USD">USD</option>
+                    <option value="KRW">국내 (KRW)</option>
+                    <option value="USD">미국 (USD)</option>
                   </select>
                 </div>
               </div>
@@ -566,13 +631,16 @@ function doPost(e) {
                   <option value="ETF/지수"></option>
                 </datalist>
               </div>
-              <div>
-                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목번호 / 티커</label>
+
+              <!-- 종목번호 / 티커 (미국주식 티커 실시간 자동완성 지원) -->
+              <div class="relative">
+                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목번호 / 티커 (미국주식 티커 검색)</label>
                 <div class="flex gap-1.5">
                   <input
                     id="stockCode"
                     type="text"
-                    placeholder="005930, AAPL"
+                    autocomplete="off"
+                    placeholder="예: AAPL, TSLA, 005930"
                     required
                     class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
@@ -580,22 +648,34 @@ function doPost(e) {
                     id="lookupFormPriceBtn"
                     type="button"
                     class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-3 py-2 rounded-lg whitespace-nowrap transition"
-                    title="연결된 구글 시트 GOOGLEFINANCE()에서 현재가를 가져옵니다"
+                    title="종목 자동완성 및 현재가 조회"
                   >
                     시세조회
                   </button>
                 </div>
+                <div
+                  id="codeSuggestBox"
+                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-30 max-h-52 overflow-y-auto divide-y divide-slate-800 text-xs"
+                ></div>
               </div>
-              <div>
-                <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명</label>
+
+              <!-- 종목명 (국내주식 유사 종목명 실시간 자동완성 지원) -->
+              <div class="relative">
+                <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명 (국내주식 유사 종목명 검색)</label>
                 <input
                   id="stockName"
                   type="text"
-                  placeholder="예: 삼성전자, Apple"
+                  autocomplete="off"
+                  placeholder="예: 삼성전자, 하이닉스, Apple"
                   required
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+                <div
+                  id="nameSuggestBox"
+                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-30 max-h-52 overflow-y-auto divide-y divide-slate-800 text-xs"
+                ></div>
               </div>
+
               <div>
                 <label id="buyPriceLabel" for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
                 <input
@@ -775,9 +855,11 @@ function doPost(e) {
     const STORAGE_KEY_OVERRIDES = 'my_stock_overrides_v2';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
+    const STORAGE_KEY_FINNHUB_KEY = 'my_finnhub_api_key_v1';
 
     let trades = [];
     let portfolio = [];
+    let autocompleteTimer = null;
 
     // DOM 참조
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -803,8 +885,10 @@ function doPost(e) {
     const marketCurrencyInput = document.getElementById('marketCurrency');
     const sectorInput = document.getElementById('sector');
     const stockCodeInput = document.getElementById('stockCode');
+    const codeSuggestBox = document.getElementById('codeSuggestBox');
     const lookupFormPriceBtn = document.getElementById('lookupFormPriceBtn');
     const stockNameInput = document.getElementById('stockName');
+    const nameSuggestBox = document.getElementById('nameSuggestBox');
     const buyPriceLabel = document.getElementById('buyPriceLabel');
     const buyPriceInput = document.getElementById('buyPrice');
     const currentPriceInput = document.getElementById('currentPrice');
@@ -854,20 +938,258 @@ function doPost(e) {
       }
     });
 
+    // =========================================================================
+    // 실시간 종목 검색 & 자동완성 (국내주식: 네이버 금융 AC API / 미국주식: Yahoo Finance & Finnhub API)
+    // =========================================================================
+    async function fetchJsonWithCorsFallback(targetUrl) {
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      ];
+      for (const url of proxies) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (_err) {
+          // 다음 프록시 시도
+        }
+      }
+      return null;
+    }
+
+    // 1) 국내 주식: 네이버 증권 종목 자동완성 API (https://ac.finance.naver.com/ac?q=...&target=stock)
+    async function searchKoreanStockByNaver(query) {
+      const q = String(query || '').trim();
+      if (!q) return [];
+
+      // (a) 구글 시트 웹앱이 연결되어 있으면 서버사이드 UrlFetchApp 우선 사용 (CORS 없음, 가장 빠름)
+      const sheetUrl = getSheetWebAppUrl();
+      if (sheetUrl && sheetUrl.includes('script.google.com')) {
+        try {
+          const sep = sheetUrl.includes('?') ? '&' : '?';
+          const res = await fetch(`${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=KRW`);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data?.results) && data.results.length > 0) {
+              return data.results;
+            }
+          }
+        } catch (_e) {}
+      }
+
+      // (b) 브라우저 직접/프록시 호출: GET https://ac.finance.naver.com/ac?q=삼전&target=stock
+      const naverAcUrl = `https://ac.finance.naver.com/ac?q=${encodeURIComponent(q)}&target=stock`;
+      const data = await fetchJsonWithCorsFallback(naverAcUrl);
+      const list = data?.items?.[0] || [];
+      const results = [];
+
+      list.forEach((row) => {
+        if (!Array.isArray(row) || row.length < 2) return;
+        const a0 = String(row[0] || '').trim();
+        const a1 = String(row[1] || '').trim();
+        const isFirstCode = /^\d{4}[0-9A-Z]{2}$/.test(a0);
+        const code = isFirstCode ? a0 : a1;
+        const name = isFirstCode ? a1 : a0;
+        const exchange = String(row[2] || 'KRX').trim();
+        if (code && name) {
+          results.push({
+            code,
+            name,
+            exchange,
+            currency: 'KRW',
+          });
+        }
+      });
+
+      return results.slice(0, 8);
+    }
+
+    // 2) 미국 주식: Yahoo Finance Auto-complete (https://query1.finance.yahoo.com/v1/finance/search?q=...) 및 Finnhub API
+    async function searchUsStockByTicker(query) {
+      const q = String(query || '').trim();
+      if (!q) return [];
+
+      // (a) 구글 시트 웹앱 경유 조회
+      const sheetUrl = getSheetWebAppUrl();
+      if (sheetUrl && sheetUrl.includes('script.google.com')) {
+        try {
+          const sep = sheetUrl.includes('?') ? '&' : '?';
+          const res = await fetch(`${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=USD`);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data?.results) && data.results.length > 0) {
+              return data.results;
+            }
+          }
+        } catch (_e) {}
+      }
+
+      // (b) Finnhub API 키가 등록된 경우: GET https://finnhub.io/api/v1/search?q=AAPL&token=YOUR_API_KEY
+      const finnhubToken = localStorage.getItem(STORAGE_KEY_FINNHUB_KEY) || '';
+      if (finnhubToken) {
+        try {
+          const fhUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${encodeURIComponent(finnhubToken)}`;
+          const fhRes = await fetch(fhUrl);
+          if (fhRes.ok) {
+            const fhData = await fhRes.json();
+            if (Array.isArray(fhData?.result) && fhData.result.length > 0) {
+              return fhData.result.slice(0, 8).map((item) => ({
+                code: String(item.symbol || '').trim(),
+                name: String(item.description || item.symbol || '').trim(),
+                exchange: String(item.type || 'US').trim(),
+                currency: 'USD',
+              }));
+            }
+          }
+        } catch (_e2) {}
+      }
+
+      // (c) Yahoo Finance Query Auto-complete: GET https://query1.finance.yahoo.com/v1/finance/search?q=TSLA
+      const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
+      const yData = await fetchJsonWithCorsFallback(yahooUrl);
+      const quotes = yData?.quotes || [];
+      return quotes
+        .filter((qt) => qt && qt.symbol)
+        .map((qt) => {
+          const sym = String(qt.symbol).trim();
+          const isKor = /\.(KS|KQ)$/i.test(sym);
+          return {
+            code: isKor ? sym.replace(/\.(KS|KQ)$/i, '') : sym,
+            name: String(qt.shortname || qt.longname || sym).trim(),
+            exchange: String(qt.exchDisp || qt.exchange || 'US').trim(),
+            currency: isKor ? 'KRW' : 'USD',
+          };
+        })
+        .slice(0, 8);
+    }
+
+    function renderSuggestionDropdown(boxEl, items) {
+      if (!items || items.length === 0) {
+        boxEl.classList.add('hidden');
+        boxEl.innerHTML = '';
+        return;
+      }
+
+      boxEl.innerHTML = items
+        .map(
+          (item) => `
+          <button
+            type="button"
+            data-code="${escapeHtml(item.code)}"
+            data-name="${escapeHtml(item.name)}"
+            data-currency="${escapeHtml(item.currency)}"
+            class="suggest-item-btn w-full text-left px-3 py-2 hover:bg-indigo-950/80 flex items-center justify-between gap-2 transition"
+          >
+            <div class="truncate">
+              <span class="font-bold text-white">${escapeHtml(item.name)}</span>
+              <span class="text-slate-400 font-mono ml-1.5">(${escapeHtml(item.code)})</span>
+            </div>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 border border-slate-700 whitespace-nowrap">
+              ${escapeHtml(item.exchange || item.currency)}
+            </span>
+          </button>
+        `
+        )
+        .join('');
+
+      boxEl.classList.remove('hidden');
+
+      boxEl.querySelectorAll('.suggest-item-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const selectedCode = btn.getAttribute('data-code') || '';
+          const selectedName = btn.getAttribute('data-name') || '';
+          const selectedCur = btn.getAttribute('data-currency') || 'KRW';
+
+          stockCodeInput.value = formatDisplayStockCode(selectedCode);
+          stockNameInput.value = selectedName;
+          marketCurrencyInput.value = selectedCur;
+
+          // 기존 보유종목에 섹터가 있으면 자동 완성
+          const gfKey = toGoogleFinanceTicker(selectedCode);
+          const existing = portfolio.find((p) => p.code === gfKey || p.id === gfKey);
+          if (existing && !sectorInput.value) {
+            sectorInput.value = existing.sector;
+          }
+
+          codeSuggestBox.classList.add('hidden');
+          nameSuggestBox.classList.add('hidden');
+
+          // 구글 시트가 연결되어 있으면 선택 즉시 현재가 조회
+          if (getSheetWebAppUrl()) {
+            try {
+              const priceRes = await fetchSingleTickerPrice(selectedCode);
+              currentPriceInput.value = priceRes.singlePrice;
+              if (!buyPriceInput.value) {
+                buyPriceInput.value = priceRes.singlePrice;
+              }
+            } catch (_e) {}
+          }
+        });
+      });
+    }
+
+    // 종목번호 / 티커 입력 시 자동완성 (미국주식 티커 -> Yahoo/Finnhub, 국내 숫자코드/한글 -> 네이버 금융)
     stockCodeInput.addEventListener('input', () => {
-      const val = stockCodeInput.value.trim().toUpperCase();
-      if (!val) return;
-      if (val.startsWith('NASDAQ:') || val.startsWith('NYSE:') || val.startsWith('AMEX:') || /^[A-Z]{1,5}$/.test(val)) {
+      const val = stockCodeInput.value.trim();
+      if (!val) {
+        codeSuggestBox.classList.add('hidden');
+        return;
+      }
+
+      const upper = val.toUpperCase();
+      if (upper.startsWith('NASDAQ:') || upper.startsWith('NYSE:') || upper.startsWith('AMEX:') || /^[A-Z]{1,5}$/.test(upper)) {
         marketCurrencyInput.value = 'USD';
-      } else if (val.startsWith('KRX:') || val.startsWith('KOSDAQ:') || /^\d/.test(val)) {
+      } else if (upper.startsWith('KRX:') || upper.startsWith('KOSDAQ:') || /^\d/.test(upper) || /[가-힣]/.test(upper)) {
         marketCurrencyInput.value = 'KRW';
       }
 
-      const tickerKey = toGoogleFinanceTicker(val);
+      const tickerKey = toGoogleFinanceTicker(upper);
       const found = portfolio.find((p) => p.code === tickerKey || p.id === tickerKey);
       if (found) {
         if (!stockNameInput.value) stockNameInput.value = found.name;
         if (!sectorInput.value) sectorInput.value = found.sector;
+      }
+
+      clearTimeout(autocompleteTimer);
+      autocompleteTimer = setTimeout(async () => {
+        const isKoreanQuery = /[가-힣]/.test(val) || /^\d{2,6}$/.test(val);
+        const results = isKoreanQuery
+          ? await searchKoreanStockByNaver(val)
+          : await searchUsStockByTicker(val);
+        renderSuggestionDropdown(codeSuggestBox, results);
+      }, 250);
+    });
+
+    // 종목명 입력 시 자동완성 (국내주식 유사 종목명 -> 네이버 금융 AC API, 영문 기업명 -> Yahoo Finance API)
+    stockNameInput.addEventListener('input', () => {
+      const val = stockNameInput.value.trim();
+      if (!val) {
+        nameSuggestBox.classList.add('hidden');
+        return;
+      }
+
+      clearTimeout(autocompleteTimer);
+      autocompleteTimer = setTimeout(async () => {
+        const isKoreanOrKrw = /[가-힣]/.test(val) || marketCurrencyInput.value === 'KRW';
+        let results = isKoreanOrKrw
+          ? await searchKoreanStockByNaver(val)
+          : await searchUsStockByTicker(val);
+        if (results.length === 0 && isKoreanOrKrw) {
+          results = await searchUsStockByTicker(val);
+        }
+        renderSuggestionDropdown(nameSuggestBox, results);
+      }, 250);
+    });
+
+    // 외부 클릭 시 자동완성 드롭다운 닫기
+    document.addEventListener('click', (e) => {
+      if (!stockCodeInput.contains(e.target) && !codeSuggestBox.contains(e.target)) {
+        codeSuggestBox.classList.add('hidden');
+      }
+      if (!stockNameInput.contains(e.target) && !nameSuggestBox.contains(e.target)) {
+        nameSuggestBox.classList.add('hidden');
       }
     });
 
@@ -1319,23 +1641,43 @@ function doPost(e) {
     });
 
     lookupFormPriceBtn.addEventListener('click', async () => {
-      const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
-      if (!query) {
-        alert('먼저 종목번호/티커(예: 005930, AAPL)를 입력해 주세요.');
+      let codeQuery = stockCodeInput.value.trim();
+      const nameQuery = stockNameInput.value.trim();
+
+      if (!codeQuery && !nameQuery) {
+        alert('종목번호/티커(예: AAPL, 005930) 또는 종목명(예: 삼성전자)을 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
+
       const origText = lookupFormPriceBtn.textContent;
       lookupFormPriceBtn.disabled = true;
       lookupFormPriceBtn.textContent = '조회중';
 
       try {
-        const result = await fetchSingleTickerPrice(query);
-        stockCodeInput.value = result.ticker;
-        marketCurrencyInput.value = detectCurrency(result.ticker);
-        currentPriceInput.value = result.singlePrice;
-        if (!buyPriceInput.value) {
-          buyPriceInput.value = result.singlePrice;
+        // 종목번호나 종목명 중 하나가 비어 있으면 공개 API로 먼저 자동완성 매칭
+        if (!codeQuery || !nameQuery) {
+          const searchTarget = codeQuery || nameQuery;
+          const isKr = /[가-힣]/.test(searchTarget) || /^\d+$/.test(searchTarget);
+          const matches = isKr
+            ? await searchKoreanStockByNaver(searchTarget)
+            : await searchUsStockByTicker(searchTarget);
+          if (matches.length > 0) {
+            codeQuery = matches[0].code;
+            stockCodeInput.value = formatDisplayStockCode(matches[0].code);
+            stockNameInput.value = matches[0].name;
+            marketCurrencyInput.value = matches[0].currency;
+          }
+        }
+
+        if (getSheetWebAppUrl() && (codeQuery || stockCodeInput.value.trim())) {
+          const result = await fetchSingleTickerPrice(codeQuery || stockCodeInput.value.trim());
+          stockCodeInput.value = formatDisplayStockCode(result.ticker);
+          marketCurrencyInput.value = detectCurrency(result.ticker);
+          currentPriceInput.value = result.singlePrice;
+          if (!buyPriceInput.value) {
+            buyPriceInput.value = result.singlePrice;
+          }
         }
       } catch (err) {
         alert(err.message);
