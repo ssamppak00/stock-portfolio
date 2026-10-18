@@ -57,7 +57,7 @@
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ [거래내역] 시트('26/08/15 형식) + [포트폴리오] 시트 자동 집계 + 네이버(ac.stock.naver.com)/Yahoo 종목 자동완성 연동 코드입니다!
+            ✅ [거래내역] 시트 + [포트폴리오] 시트 + [종목코드] 시트(E열: 종목코드, F열: 종목명) 참조 자동완성 연동 코드입니다!
           </p>
           <button
             id="copyAppsScriptBtn"
@@ -68,13 +68,21 @@
           </button>
         </div>
         <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300 leading-relaxed">
-          <p>1. 구글 시트(<code>https://sheets.new</code>)에서 <strong>[확장 프로그램 &gt; Apps Script]</strong>를 열고 기존 코드를 지운 뒤, 위 버튼으로 복사한 코드를 붙여넣고 저장(<code>Ctrl+S</code>)합니다.</p>
-          <p>2. 우측 상단 <strong>[배포 &gt; 새 배포]</strong> (또는 기존 배포 수정 시 <strong>[배포 &gt; 배포 관리 &gt; ✏️ 수정 &gt; 버전: 새 버전]</strong>) &rarr; 유형: <strong>웹 앱</strong> &rarr; 액세스 권한: <strong>모든 사용자</strong>로 배포합니다.</p>
-          <p>3. 발급된 <strong>웹 앱 URL (<code>https://script.google.com/macros/s/.../exec</code>)</strong>을 아래 입력칸에 붙여넣고 <strong>[연결 저장]</strong>을 누르세요.</p>
+          <p>1. 구글 시트에서 <strong>[확장 프로그램 &gt; Apps Script]</strong>를 열고 기존 코드를 지운 뒤, 위 버튼으로 복사한 코드를 붙여넣고 저장(<code>Ctrl+S</code>)합니다.</p>
+          <p>2. 구글 시트 내 <strong><code>종목코드</code></strong> 시트의 <strong>E열(종목코드)</strong>과 <strong>F열(종목명)</strong> 데이터를 자동으로 읽어와 종목번호 및 종목명을 즉시 찾아줍니다.</p>
+          <p>3. 우측 상단 <strong>[배포 &gt; 새 배포]</strong> (또는 <strong>[배포 &gt; 배포 관리 &gt; ✏️ 수정 &gt; 버전: 새 버전]</strong>) &rarr; 유형: <strong>웹 앱</strong> &rarr; 액세스 권한: <strong>모든 사용자</strong>로 배포한 뒤 웹 앱 URL을 아래에 연결하세요.</p>
         </div>
         <pre id="appsScriptCodeBlock" class="leading-relaxed select-all bg-slate-950 p-3 rounded border border-slate-800 overflow-x-auto text-[11px] text-slate-300">var TRADES_SHEET_NAME = '거래내역';
 var LEGACY_TRADES_SHEET_NAME = '매매내역';
 var PORTFOLIO_SHEET_NAME = '포트폴리오';
+var STOCK_CODE_SHEET_NAME = '종목코드';
+
+function normalizeStockCodeStr(raw) {
+  if (!raw) return '';
+  var code = String(raw).trim().toUpperCase().replace(/^(KRX:|KOSDAQ:|KOSPI:|NASDAQ:|NYSE:|AMEX:)/, '');
+  if (/^\d{1,5}$/.test(code)) code = ('000000' + code).slice(-6);
+  return code;
+}
 
 function toGfTicker(raw) {
   if (!raw) return '';
@@ -136,78 +144,64 @@ function toShortDateDisplay(isoStr) {
   return norm;
 }
 
-// 국내주식 &amp; 미국주식 실시간 검색 (네이버 증권 최신 자동완성 API ac.stock.naver.com + Yahoo Finance API)
-function searchStockApi(query, market) {
-  var q = String(query || '').trim();
-  if (!q) return [];
-  var results = [];
-  var seen = {};
+// [종목코드] 시트의 E열(종목코드)과 F열(종목명) 전체 읽기
+function readStockCodeSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var codeSheet = ss.getSheetByName(STOCK_CODE_SHEET_NAME);
+  if (!codeSheet) return [];
+  var lastRow = codeSheet.getLastRow();
+  if (lastRow &lt; 1) return [];
 
-  // 1) 네이버 증권 통합 자동완성 API (국내주식/ETF 및 해외주식 한글명 검색 모두 지원)
-  try {
-    var naverUrl = 'https://ac.stock.naver.com/ac?q=' + encodeURIComponent(q) + '&amp;target=stock,etf';
-    var resp = UrlFetchApp.fetch(naverUrl, {
-      muteHttpExceptions: true,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://m.stock.naver.com/'
-      }
-    });
-    if (resp.getResponseCode() === 200) {
-      var data = JSON.parse(resp.getContentText());
-      var items = (data &amp;&amp; data.items) ? data.items : [];
-      for (var i = 0; i &lt; items.length; i++) {
-        var it = items[i];
-        if (!it) continue;
-        // 신규 포맷: { code: "005930", name: "삼성전자", typeCode: "KOSPI", nationCode: "KOR" }
-        var code = String(it.code || '').trim();
-        var name = String(it.name || '').trim();
-        var nation = String(it.nationCode || 'KOR').toUpperCase();
-        var exch = String(it.typeCode || it.typeName || 'KRX').trim();
-        if (code &amp;&amp; name &amp;&amp; !seen[code]) {
-          seen[code] = true;
-          results.push({
-            code: code.replace(/\.[A-Z]+$/, ''),
-            name: name,
-            exchange: exch,
-            currency: (nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(code)) ? 'KRW' : 'USD'
-          });
-        }
-      }
+  // E열(5번째 열) = 종목코드, F열(6번째 열) = 종목명
+  var vals = codeSheet.getRange(1, 5, lastRow, 2).getDisplayValues();
+  var list = [];
+  for (var i = 0; i &lt; vals.length; i++) {
+    var rawCode = String(vals[i][0] || '').trim();
+    var rawName = String(vals[i][1] || '').trim();
+    if (!rawCode || !rawName) continue;
+    // 헤더 행 제외
+    var upperCode = rawCode.toUpperCase();
+    if (upperCode === '종목코드' || upperCode === '종목번호' || upperCode === '코드' || upperCode === 'CODE' || upperCode === 'TICKER' || rawName === '종목명') {
+      continue;
     }
-  } catch (_e) {}
+    var cleanCode = normalizeStockCodeStr(rawCode);
+    list.push([cleanCode, rawName]);
+  }
+  return list;
+}
 
-  // 2) 미국주식 티커/영문 기업명 검색 (Yahoo Finance Auto-complete)
-  if (market === 'USD' || /^[A-Za-z.\s]+$/.test(q) || results.length &lt; 5) {
-    try {
-      var yahooUrl = 'https://query1.finance.yahoo.com/v1/finance/search?q=' + encodeURIComponent(q) + '&amp;quotesCount=8&amp;newsCount=0';
-      var yResp = UrlFetchApp.fetch(yahooUrl, {
-        muteHttpExceptions: true,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-      });
-      if (yResp.getResponseCode() === 200) {
-        var yData = JSON.parse(yResp.getContentText());
-        var quotes = (yData &amp;&amp; yData.quotes) ? yData.quotes : [];
-        for (var j = 0; j &lt; quotes.length; j++) {
-          var qt = quotes[j];
-          if (!qt || !qt.symbol) continue;
-          var sym = String(qt.symbol).trim();
-          var isKorSym = /\.(KS|KQ)$/i.test(sym);
-          var cleanSym = isKorSym ? sym.replace(/\.(KS|KQ)$/i, '') : sym;
-          if (seen[cleanSym]) continue;
-          seen[cleanSym] = true;
-          results.push({
-            code: cleanSym,
-            name: String(qt.shortname || qt.longname || cleanSym).trim(),
-            exchange: String(qt.exchDisp || qt.exchange || 'US').trim(),
-            currency: isKorSym ? 'KRW' : 'USD'
-          });
-        }
-      }
-    } catch (_e2) {}
+// [종목코드] 시트의 E열(종목코드)과 F열(종목명)을 참조하여 검색
+function searchStockApi(query) {
+  var q = String(query || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!q) return [];
+  var rows = readStockCodeSheet();
+  var exact = [];
+  var prefix = [];
+  var partial = [];
+
+  for (var i = 0; i &lt; rows.length; i++) {
+    var code = rows[i][0];
+    var name = rows[i][1];
+    var cUp = code.toUpperCase();
+    var nUp = name.toUpperCase().replace(/\s+/g, '');
+    var isKr = /^\d{6}$/.test(cUp) || /^\d{4}[0-9A-Z]{2}$/.test(cUp);
+    var item = {
+      code: code,
+      name: name,
+      exchange: '종목코드',
+      currency: isKr ? 'KRW' : 'USD'
+    };
+
+    if (cUp === q || nUp === q) {
+      exact.push(item);
+    } else if (cUp.indexOf(q) === 0 || nUp.indexOf(q) === 0) {
+      prefix.push(item);
+    } else if (cUp.indexOf(q) !== -1 || nUp.indexOf(q) !== -1) {
+      partial.push(item);
+    }
   }
 
-  return results.slice(0, 10);
+  return exact.concat(prefix).concat(partial).slice(0, 15);
 }
 
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 &gt; 0, 평균단가 자동계산) 갱신
@@ -391,14 +385,13 @@ function readState(tradesSheet, pfSheet) {
       });
     }
   }
-  return { ok: true, trades: trades, items: items };
+  return { ok: true, trades: trades, items: items, stockCodes: readStockCodeSheet() };
 }
 
 function doGet(e) {
   var searchQuery = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.search) ? e.parameter.search.trim() : '';
   if (searchQuery) {
-    var mkt = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.market) ? e.parameter.market.trim() : '';
-    var results = searchStockApi(searchQuery, mkt);
+    var results = searchStockApi(searchQuery);
     return ContentService.createTextOutput(JSON.stringify({ ok: true, results: results }))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -595,7 +588,7 @@ function doPost(e) {
           <div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
               <h2 class="text-base font-bold text-white">➕ 매수/매도 내역</h2>
-              <span class="text-xs text-emerald-400">⚡ 국내·미국 종목명/약칭/티커 입력 시 즉시 자동완성</span>
+              <span id="stockCodeSheetBadge" class="text-xs text-emerald-400">⚡ 구글시트 <strong>종목코드</strong> 시트(E열:코드 · F열:종목명) 참조 검색</span>
             </div>
             <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
@@ -893,9 +886,11 @@ function doPost(e) {
     const STORAGE_KEY_OVERRIDES = 'my_stock_overrides_v2';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
+    const STORAGE_KEY_SHEET_STOCK_CODES = 'my_sheet_stock_codes_v1';
 
     let trades = [];
     let portfolio = [];
+    let sheetStockCodes = [];
     let autocompleteTimer = null;
     const searchCache = new Map();
 
@@ -1137,16 +1132,42 @@ function doPost(e) {
     });
 
     // =========================================================================
-    // 개선된 초고속 종목 검색 엔진 (0ms 내장 사전 + 네이버 ac.stock.naver.com + Yahoo Finance)
+    // 구글 시트 [종목코드] 시트 (E열: 종목코드, F열: 종목명) 기반 종목 검색 엔진
     // =========================================================================
+    function updateStockCodeSheetBadge() {
+      const badgeEl = document.getElementById('stockCodeSheetBadge');
+      if (!badgeEl) return;
+      if (sheetStockCodes.length > 0) {
+        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(E열·F열) <strong>${sheetStockCodes.length.toLocaleString('ko-KR')}종목</strong> 연동됨`;
+      } else {
+        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(E열:종목코드 · F열:종목명) 참조 검색`;
+      }
+    }
+
     function searchLocalStockDictionary(rawQuery) {
       const q = String(rawQuery || '').trim().toUpperCase().replace(/\s+/g, '');
       if (!q) return [];
 
-      // 사용자가 이미 보유/거래했던 종목도 로컬 검색 풀에 포함
       const dynamicPool = [];
       const seenCodes = new Set();
 
+      // 1순위: 구글 시트의 [종목코드] 시트 E열(종목코드) · F열(종목명) 데이터
+      sheetStockCodes.forEach((item) => {
+        const cleanCode = formatDisplayStockCode(item.code);
+        if (cleanCode && cleanCode !== '-' && !seenCodes.has(cleanCode)) {
+          seenCodes.add(cleanCode);
+          dynamicPool.push({
+            code: cleanCode,
+            name: item.name,
+            exchange: '종목코드',
+            currency: item.currency || detectCurrency(cleanCode),
+            sector: item.sector || '',
+            aliases: [],
+          });
+        }
+      });
+
+      // 2순위: 현재 보유/거래했던 종목
       portfolio.forEach((p) => {
         const cleanCode = formatDisplayStockCode(p.code);
         if (cleanCode && cleanCode !== '-' && !seenCodes.has(cleanCode)) {
@@ -1162,15 +1183,15 @@ function doPost(e) {
         }
       });
 
-      BUILTIN_STOCK_DB.forEach((item) => {
-        if (!seenCodes.has(item.code)) {
-          seenCodes.add(item.code);
-          dynamicPool.push(item);
-        } else {
-          const existing = dynamicPool.find((d) => d.code === item.code);
-          if (existing) existing.aliases = item.aliases || [];
-        }
-      });
+      // 3순위: 시트 미연결 시 기본 내장 사전 폴백
+      if (sheetStockCodes.length === 0) {
+        BUILTIN_STOCK_DB.forEach((item) => {
+          if (!seenCodes.has(item.code)) {
+            seenCodes.add(item.code);
+            dynamicPool.push(item);
+          }
+        });
+      }
 
       const exactMatches = [];
       const prefixMatches = [];
@@ -1198,10 +1219,10 @@ function doPost(e) {
         }
       }
 
-      return [...exactMatches, ...prefixMatches, ...partialMatches].slice(0, 10);
+      return [...exactMatches, ...prefixMatches, ...partialMatches].slice(0, 15);
     }
 
-    async function fetchWithTimeout(url, timeoutMs = 1800) {
+    async function fetchWithTimeout(url, timeoutMs = 2500) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -1215,99 +1236,45 @@ function doPost(e) {
       }
     }
 
+    // 구글 시트 [종목코드] 시트(E열: 종목코드, F열: 종목명) 실시간 조회
     async function fetchRemoteStockSuggestions(rawQuery) {
       const q = String(rawQuery || '').trim();
       if (!q) return [];
+
+      // 이미 브라우저에 [종목코드] 시트 전체 데이터가 캐시되어 있으면 서버 재호출 불필요 (0ms 즉시 응답)
+      if (sheetStockCodes.length > 0) {
+        return [];
+      }
+
       const cacheKey = q.toUpperCase();
       if (searchCache.has(cacheKey)) {
         return searchCache.get(cacheKey);
       }
 
-      const results = [];
-      const seen = new Set();
-      const addItem = (code, name, exchange, currency) => {
-        const cleanCode = String(code || '').trim().replace(/\.(KS|KQ)$/i, '');
-        const cleanName = String(name || '').trim();
-        if (!cleanCode || !cleanName || seen.has(cleanCode)) return;
-        seen.add(cleanCode);
-        results.push({
-          code: cleanCode,
-          name: cleanName,
-          exchange: exchange || (currency === 'USD' ? 'US' : 'KRX'),
-          currency: currency || (/^\d{4}[0-9A-Z]{2}$/.test(cleanCode) ? 'KRW' : 'USD'),
-        });
-      };
-
-      // 1) 구글 시트 Apps Script 웹앱이 연결되어 있으면 서버사이드 검색 최우선 호출
       const sheetUrl = getSheetWebAppUrl();
-      if (sheetUrl && sheetUrl.includes('script.google.com')) {
-        const sep = sheetUrl.includes('?') ? '&' : '?';
-        const data = await fetchWithTimeout(
-          `${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=${encodeURIComponent(marketCurrencyInput.value)}`,
-          2000
-        );
-        if (Array.isArray(data?.results) && data.results.length > 0) {
-          data.results.forEach((r) => addItem(r.code, r.name, r.exchange, r.currency));
-          searchCache.set(cacheKey, results);
-          return results;
-        }
+      if (!sheetUrl || !sheetUrl.includes('script.google.com')) {
+        return [];
       }
 
-      // 2) 최신 네이버 증권 자동완성 API (https://ac.stock.naver.com/ac?q=...&target=stock,etf)
-      const naverTargetUrl = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(q)}&target=stock,etf`;
-      const isEnglishTicker = /^[A-Za-z.]{1,10}$/.test(q);
-      const yahooTargetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
-
-      // 병렬 프록시 호출로 지연 최소화
-      const parseNaverData = (nData) => {
-        const items = nData?.items || [];
-        items.forEach((it) => {
-          if (it && typeof it === 'object' && !Array.isArray(it)) {
-            const nation = String(it.nationCode || 'KOR').toUpperCase();
-            const code = String(it.code || '').trim();
-            const cur = nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(code) ? 'KRW' : 'USD';
-            addItem(code, it.name, it.typeCode || it.typeName || 'KRX', cur);
+      const sep = sheetUrl.includes('?') ? '&' : '?';
+      const data = await fetchWithTimeout(`${sheetUrl}${sep}search=${encodeURIComponent(q)}`, 2500);
+      const results = [];
+      if (Array.isArray(data?.results) && data.results.length > 0) {
+        data.results.forEach((r) => {
+          const cleanCode = formatDisplayStockCode(r.code);
+          const cleanName = String(r.name || '').trim();
+          if (cleanCode && cleanName) {
+            results.push({
+              code: cleanCode,
+              name: cleanName,
+              exchange: '종목코드',
+              currency: r.currency || detectCurrency(cleanCode),
+            });
           }
         });
-      };
-
-      const parseYahooData = (yData) => {
-        const quotes = yData?.quotes || [];
-        quotes.forEach((qt) => {
-          if (!qt || !qt.symbol) return;
-          const sym = String(qt.symbol).trim();
-          const isKor = /\.(KS|KQ)$/i.test(sym);
-          addItem(
-            sym,
-            qt.shortname || qt.longname || sym,
-            qt.exchDisp || qt.exchange || 'US',
-            isKor ? 'KRW' : 'USD'
-          );
-        });
-      };
-
-      const tasks = [
-        fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(naverTargetUrl)}`, 1800).then(
-          (d) => d && parseNaverData(d)
-        ),
-        fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(naverTargetUrl)}`, 1800).then(
-          (d) => d && parseNaverData(d)
-        ),
-      ];
-
-      if (isEnglishTicker || marketCurrencyInput.value === 'USD') {
-        tasks.push(
-          fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooTargetUrl)}`, 1800).then(
-            (d) => d && parseYahooData(d)
-          )
-        );
-      }
-
-      await Promise.allSettled(tasks);
-      if (results.length > 0) {
         searchCache.set(cacheKey, results);
       }
-      return results.slice(0, 10);
+      return results.slice(0, 15);
     }
 
     function mergeStockResults(localItems, remoteItems) {
@@ -1678,6 +1645,16 @@ function doPost(e) {
 
     function loadLocalState() {
       try {
+        const savedStockCodes = localStorage.getItem(STORAGE_KEY_SHEET_STOCK_CODES);
+        if (savedStockCodes) {
+          sheetStockCodes = JSON.parse(savedStockCodes) || [];
+          updateStockCodeSheetBadge();
+        }
+      } catch (_e) {
+        sheetStockCodes = [];
+      }
+
+      try {
         const savedTrades = localStorage.getItem(STORAGE_KEY_TRADES);
         if (savedTrades) {
           trades = JSON.parse(savedTrades) || [];
@@ -1721,6 +1698,27 @@ function doPost(e) {
     }
 
     function applyRemoteState(data) {
+      // [종목코드] 시트의 E열(종목코드) · F열(종목명) 목록 동기화 및 브라우저 캐싱
+      if (Array.isArray(data?.stockCodes)) {
+        sheetStockCodes = data.stockCodes
+          .map((pair) => {
+            const rawCode = Array.isArray(pair) ? pair[0] : pair?.code;
+            const rawName = Array.isArray(pair) ? pair[1] : pair?.name;
+            const cleanCode = formatDisplayStockCode(rawCode);
+            const cleanName = String(rawName || '').trim();
+            if (!cleanCode || cleanCode === '-' || !cleanName) return null;
+            return {
+              code: cleanCode,
+              name: cleanName,
+              currency: detectCurrency(cleanCode),
+            };
+          })
+          .filter(Boolean);
+        localStorage.setItem(STORAGE_KEY_SHEET_STOCK_CODES, JSON.stringify(sheetStockCodes));
+        searchCache.clear();
+        updateStockCodeSheetBadge();
+      }
+
       if (Array.isArray(data?.trades)) {
         trades = data.trades.map((tr) => ({
           id: String(tr.id),
@@ -1802,7 +1800,7 @@ function doPost(e) {
         }
 
         if (showAlertOnSuccess) {
-          alert(`✅ 구글 시트 동기화 완료! (거래내역 ${trades.length}건 / 현재 보유종목 ${portfolio.length}종목)`);
+          alert(`✅ 구글 시트 동기화 완료!\n- 거래내역: ${trades.length}건\n- 현재 보유종목: ${portfolio.length}종목\n- 종목코드 시트(E·F열): ${sheetStockCodes.length.toLocaleString('ko-KR')}종목 연동됨`);
         }
       } catch (err) {
         console.error('구글 시트 동기화 오류:', err);
