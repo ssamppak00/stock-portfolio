@@ -3,25 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>내 주식 포트폴리오 & Gemini AI 투자 상담</title>
+  <title>내 주식 포트폴리오 & Gemini AI 투자 상담 (Supabase 실시간 동기화)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
   <!-- 상단 헤더 -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-slate-900">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-500 mt-0.5">내 컴퓨터(브라우저)에만 안전하게 저장되는 나만의 자산 관리 대시보드</p>
+        <p class="text-xs text-slate-500 mt-0.5">Supabase 클라우드 DB & 기기 간 실시간 동기화 지원</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
-      <div class="flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
+      <div class="flex flex-wrap items-center gap-2 bg-slate-100 p-2 rounded-lg">
         <label for="apiKeyInput" class="text-xs font-semibold text-slate-600 whitespace-nowrap">🔑 Gemini API 키:</label>
         <input
           id="apiKeyInput"
           type="password"
           placeholder="API 키를 입력하세요"
-          class="text-xs px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-56 bg-white"
+          class="text-xs px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-52 bg-white"
         />
         <button
           id="saveApiKeyBtn"
@@ -37,6 +38,122 @@
 
   <!-- 메인 대시보드 영역 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Supabase 연결 및 로그인 패널 -->
+    <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-bold text-slate-900">☁️ Supabase 클라우드 동기화 및 계정 설정</h2>
+          <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">로컬 모드 (미연결)</span>
+        </div>
+        <button
+          id="toggleSqlGuideBtn"
+          type="button"
+          class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline self-start md:self-auto"
+        >
+          📌 Supabase 초기 테이블 생성 SQL 보기
+        </button>
+      </div>
+
+      <!-- SQL 안내 박스 (기본 숨김) -->
+      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-slate-900 text-slate-100 rounded-lg text-xs overflow-x-auto">
+        <p class="text-amber-300 font-semibold mb-2">Supabase 대시보드 → SQL Editor에 아래 SQL을 붙여넣고 Run을 눌러주세요 (최초 1회):</p>
+        <pre class="leading-relaxed select-all">create table if not exists public.portfolios (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  buy_date date not null,
+  sector text not null,
+  stock_name text not null,
+  buy_price numeric not null,
+  quantity numeric not null,
+  created_at timestamptz default now()
+);
+
+alter table public.portfolios enable row level security;
+
+create policy "Users can manage own portfolio"
+  on public.portfolios for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+alter publication supabase_realtime add table public.portfolios;</pre>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- 1) Supabase URL / Anon Key 설정 -->
+        <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
+          <p class="text-xs font-bold text-slate-700">1단계: Supabase 프로젝트 연결</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              id="supabaseUrlInput"
+              type="url"
+              placeholder="Project URL (https://xxx.supabase.co)"
+              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <input
+              id="supabaseKeyInput"
+              type="password"
+              placeholder="Anon public API Key"
+              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <button
+              id="saveSupabaseBtn"
+              type="button"
+              class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3.5 py-1.5 rounded transition"
+            >
+              연결 정보 저장
+            </button>
+          </div>
+        </div>
+
+        <!-- 2) 사용자 이메일 로그인 / 회원가입 -->
+        <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-slate-700">2단계: 사용자 로그인 (기기 간 내 데이터 동기화)</p>
+            <span id="userEmailText" class="text-xs text-emerald-700 font-semibold">로그아웃 상태</span>
+          </div>
+          <div id="authFormArea" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input
+              id="authEmailInput"
+              type="email"
+              placeholder="이메일 주소"
+              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              id="authPasswordInput"
+              type="password"
+              placeholder="비밀번호 (6자 이상)"
+              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <button
+              id="signInBtn"
+              type="button"
+              class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded transition"
+            >
+              로그인
+            </button>
+            <button
+              id="signUpBtn"
+              type="button"
+              class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-semibold px-3 py-1.5 rounded transition"
+            >
+              회원가입
+            </button>
+            <button
+              id="signOutBtn"
+              type="button"
+              class="hidden text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded transition"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 상단 요약 카드 3종 -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -140,7 +257,7 @@
         <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-base font-bold text-slate-900">📋 포트폴리오 매수 내역</h2>
-            <span class="text-xs text-slate-400">브라우저에 자동 저장됩니다</span>
+            <span id="storageNoticeText" class="text-xs text-slate-400">브라우저에 자동 저장됩니다</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -155,9 +272,7 @@
                   <th class="py-2.5 px-3 text-center">관리</th>
                 </tr>
               </thead>
-              <tbody id="portfolioTableBody" class="divide-y divide-slate-100 text-sm">
-                <!-- 자바스크립트로 렌더링 -->
-              </tbody>
+              <tbody id="portfolioTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
             </table>
           </div>
         </section>
@@ -173,7 +288,6 @@
             </div>
           </div>
 
-          <!-- 추천 질문 버튼 -->
           <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -198,14 +312,12 @@
             </button>
           </div>
 
-          <!-- 대화 메시지 영역 -->
           <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-sm">
             <div class="bg-white border border-slate-200 rounded-xl p-3.5 text-slate-700 shadow-sm">
-              안녕하세요! 왼쪽에서 매수한 주식을 등록하고 상단에 <strong>Gemini API 키</strong>를 저장한 뒤 질문해 보세요. 등록된 포트폴리오 비중을 자동으로 분석해 맞춤형 피드백을 드립니다.
+              안녕하세요! Supabase에 로그인하면 스마트폰과 PC 어디서나 동일한 포트폴리오를 실시간으로 관리하고 AI 상담을 받을 수 있습니다.
             </div>
           </div>
 
-          <!-- 질문 입력창 -->
           <form id="chatForm" class="p-3 border-t border-slate-200 bg-white flex gap-2">
             <input
               id="chatInput"
@@ -228,17 +340,36 @@
   </main>
 
   <script>
-    // localStorage 키 상수 정의
     const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
+    const STORAGE_KEY_SB_URL = 'my_supabase_url_v1';
+    const STORAGE_KEY_SB_KEY = 'my_supabase_anon_key_v1';
 
-    // 상태 데이터
     let portfolio = [];
+    let supabaseClient = null;
+    let currentUser = null;
+    let realtimeChannel = null;
 
-    // DOM 요소 참조
+    // DOM 참조
     const apiKeyInput = document.getElementById('apiKeyInput');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+    const supabaseUrlInput = document.getElementById('supabaseUrlInput');
+    const supabaseKeyInput = document.getElementById('supabaseKeyInput');
+    const saveSupabaseBtn = document.getElementById('saveSupabaseBtn');
+    const syncBadge = document.getElementById('syncBadge');
+    const storageNoticeText = document.getElementById('storageNoticeText');
+    const toggleSqlGuideBtn = document.getElementById('toggleSqlGuideBtn');
+    const sqlGuideBox = document.getElementById('sqlGuideBox');
+
+    const authFormArea = document.getElementById('authFormArea');
+    const authEmailInput = document.getElementById('authEmailInput');
+    const authPasswordInput = document.getElementById('authPasswordInput');
+    const signInBtn = document.getElementById('signInBtn');
+    const signUpBtn = document.getElementById('signUpBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const userEmailText = document.getElementById('userEmailText');
 
     const stockForm = document.getElementById('stockForm');
     const buyDateInput = document.getElementById('buyDate');
@@ -258,15 +389,16 @@
     const chatSubmitBtn = document.getElementById('chatSubmitBtn');
     const quickPromptBtns = document.querySelectorAll('.quick-prompt-btn');
 
-    // 오늘 날짜 기본 세팅
     buyDateInput.value = new Date().toISOString().split('T')[0];
 
-    // 숫자 포맷 도우미 (원화 표시)
+    toggleSqlGuideBtn.addEventListener('click', () => {
+      sqlGuideBox.classList.toggle('hidden');
+    });
+
     function formatKRW(number) {
       return Math.round(number).toLocaleString('ko-KR') + '원';
     }
 
-    // XSS 방지용 텍스트 이스케이프
     function escapeHtml(str) {
       return String(str)
         .replace(/&/g, '&amp;')
@@ -276,58 +408,237 @@
         .replace(/'/g, '&#039;');
     }
 
-    // 1. 초기 데이터 불러오기
-    function loadFromStorage() {
+    // 로컬 스토리지 폴백 데이터 불러오기
+    function loadLocalPortfolio() {
       try {
-        const savedPortfolio = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
-        if (savedPortfolio) {
-          portfolio = JSON.parse(savedPortfolio);
-        }
+        const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+        portfolio = saved ? JSON.parse(saved) : [];
       } catch (err) {
-        console.error('포트폴리오 데이터 로드 실패:', err);
         portfolio = [];
       }
+      renderPortfolio();
+    }
 
+    function saveLocalPortfolio() {
+      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+    }
+
+    // Supabase 초기화 및 세션 감시
+    async function initSupabase() {
+      const url = localStorage.getItem(STORAGE_KEY_SB_URL) || '';
+      const key = localStorage.getItem(STORAGE_KEY_SB_KEY) || '';
+      supabaseUrlInput.value = url;
+      supabaseKeyInput.value = key;
+
+      if (!url || !key || !window.supabase) {
+        updateSyncUI(false);
+        loadLocalPortfolio();
+        return;
+      }
+
+      try {
+        supabaseClient = window.supabase.createClient(url, key);
+        const { data } = await supabaseClient.auth.getSession();
+        handleAuthUser(data?.session?.user || null);
+
+        supabaseClient.auth.onAuthStateChange((_event, session) => {
+          handleAuthUser(session?.user || null);
+        });
+      } catch (err) {
+        console.error('Supabase 초기화 오류:', err);
+        updateSyncUI(false);
+        loadLocalPortfolio();
+      }
+    }
+
+    function updateSyncUI(isCloudActive) {
+      if (isCloudActive && currentUser) {
+        syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold';
+        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email})`;
+        userEmailText.textContent = currentUser.email;
+        authFormArea.classList.add('hidden');
+        signInBtn.classList.add('hidden');
+        signUpBtn.classList.add('hidden');
+        signOutBtn.classList.remove('hidden');
+      } else {
+        syncBadge.textContent = '로컬 모드 (브라우저 저장)';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium';
+        storageNoticeText.textContent = '브라우저(localStorage)에 자동 저장됩니다';
+        userEmailText.textContent = '로그아웃 상태';
+        authFormArea.classList.remove('hidden');
+        signInBtn.classList.remove('hidden');
+        signUpBtn.classList.remove('hidden');
+        signOutBtn.classList.add('hidden');
+      }
+    }
+
+    async function handleAuthUser(user) {
+      currentUser = user;
+      if (currentUser && supabaseClient) {
+        updateSyncUI(true);
+        await fetchCloudPortfolio();
+        subscribeRealtimePortfolio();
+      } else {
+        if (realtimeChannel && supabaseClient) {
+          supabaseClient.removeChannel(realtimeChannel);
+          realtimeChannel = null;
+        }
+        updateSyncUI(false);
+        loadLocalPortfolio();
+      }
+    }
+
+    // 원격 DB에서 사용자별 포트폴리오 조회
+    async function fetchCloudPortfolio() {
+      if (!supabaseClient || !currentUser) return;
+      const { data, error } = await supabaseClient
+        .from('portfolios')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('클라우드 데이터 조회 실패:', error.message);
+        alert('데이터 조회 실패: ' + error.message + '\n(상단의 초기 테이블 생성 SQL을 실행했는지 확인해 주세요.)');
+        return;
+      }
+
+      portfolio = (data || []).map((row) => ({
+        id: row.id,
+        date: row.buy_date,
+        sector: row.sector,
+        name: row.stock_name,
+        price: Number(row.buy_price),
+        quantity: Number(row.quantity),
+      }));
+      renderPortfolio();
+    }
+
+    // 기기 간 실시간(Realtime) 변경 구독
+    function subscribeRealtimePortfolio() {
+      if (!supabaseClient || !currentUser) return;
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+
+      realtimeChannel = supabaseClient
+        .channel('portfolio-realtime-' + currentUser.id)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'portfolios',
+            filter: `user_id=eq.${currentUser.id}`,
+          },
+          () => {
+            fetchCloudPortfolio();
+          }
+        )
+        .subscribe();
+    }
+
+    // Supabase 설정 저장 버튼
+    saveSupabaseBtn.addEventListener('click', async () => {
+      const url = supabaseUrlInput.value.trim();
+      const key = supabaseKeyInput.value.trim();
+      if (!url || !key) {
+        localStorage.removeItem(STORAGE_KEY_SB_URL);
+        localStorage.removeItem(STORAGE_KEY_SB_KEY);
+        supabaseClient = null;
+        currentUser = null;
+        updateSyncUI(false);
+        loadLocalPortfolio();
+        alert('Supabase 연결 정보가 초기화되어 로컬 모드로 전환되었습니다.');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY_SB_URL, url);
+      localStorage.setItem(STORAGE_KEY_SB_KEY, key);
+      await initSupabase();
+      alert('Supabase 연결 정보가 저장되었습니다. 이제 로그인 또는 회원가입을 진행해 주세요.');
+    });
+
+    // 로그인
+    signInBtn.addEventListener('click', async () => {
+      if (!supabaseClient) {
+        alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
+        return;
+      }
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value.trim();
+      if (!email || !password) {
+        alert('이메일과 비밀번호를 입력해 주세요.');
+        return;
+      }
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert('로그인 실패: ' + error.message);
+      } else {
+        authPasswordInput.value = '';
+      }
+    });
+
+    // 회원가입
+    signUpBtn.addEventListener('click', async () => {
+      if (!supabaseClient) {
+        alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
+        return;
+      }
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value.trim();
+      if (!email || password.length < 6) {
+        alert('이메일과 6자 이상의 비밀번호를 입력해 주세요.');
+        return;
+      }
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        alert('회원가입 실패: ' + error.message);
+      } else {
+        alert('회원가입 요청이 완료되었습니다! (이메일 인증 설정 여부에 따라 바로 로그인되거나 확인 메일이 발송됩니다.)');
+      }
+    });
+
+    // 로그아웃
+    signOutBtn.addEventListener('click', async () => {
+      if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+      }
+    });
+
+    // Gemini API 키 초기 로드 및 저장
+    function initGeminiKey() {
       const savedKey = localStorage.getItem(STORAGE_KEY_API_KEY) || '';
       if (savedKey) {
         apiKeyInput.value = savedKey;
         apiKeyStatus.textContent = '저장됨 ✅';
         apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
       }
-      renderPortfolio();
     }
 
-    // 2. 포트폴리오 저장
-    function savePortfolio() {
-      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
-    }
-
-    // 3. API 키 저장
     saveApiKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
       if (!key) {
         localStorage.removeItem(STORAGE_KEY_API_KEY);
         apiKeyStatus.textContent = '미등록';
         apiKeyStatus.className = 'text-xs text-slate-500 whitespace-nowrap';
-        alert('API 키가 삭제되었습니다.');
+        alert('Gemini API 키가 삭제되었습니다.');
         return;
       }
       localStorage.setItem(STORAGE_KEY_API_KEY, key);
       apiKeyStatus.textContent = '저장됨 ✅';
       apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
-      alert('Gemini API 키가 브라우저에 안전하게 저장되었습니다.');
+      alert('Gemini API 키가 브라우저에 저장되었습니다.');
     });
 
-    // 4. 포트폴리오 화면 렌더링 (요약 카드 + 테이블)
+    // 화면 렌더링
     function renderPortfolio() {
       const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
 
-      // 상단 요약 업데이트
       totalInvestmentText.textContent = formatKRW(totalAmount);
       totalCountText.textContent = `${uniqueStocks}종목 (${portfolio.length}건)`;
 
-      // 섹터별 비중 계산
       if (portfolio.length === 0 || totalAmount === 0) {
         sectorSummaryBox.innerHTML = '<span class="text-slate-400">등록된 내역이 없습니다.</span>';
       } else {
@@ -346,7 +657,6 @@
           .join('');
       }
 
-      // 테이블 업데이트
       if (portfolio.length === 0) {
         portfolioTableBody.innerHTML = `
           <tr>
@@ -390,42 +700,75 @@
         .join('');
     }
 
-    // 5. 주식 매수 내역 추가
-    stockForm.addEventListener('submit', (e) => {
+    // 종목 추가 (Supabase 로그인 시 원격 저장, 미로그인 시 로컬 저장)
+    stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const newItem = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
-        date: buyDateInput.value,
-        sector: sectorInput.value.trim(),
-        name: stockNameInput.value.trim(),
-        price: parseFloat(buyPriceInput.value),
-        quantity: parseFloat(quantityInput.value),
-      };
+      const date = buyDateInput.value;
+      const sector = sectorInput.value.trim();
+      const name = stockNameInput.value.trim();
+      const price = parseFloat(buyPriceInput.value);
+      const quantity = parseFloat(quantityInput.value);
 
-      if (!newItem.sector || !newItem.name || isNaN(newItem.price) || isNaN(newItem.quantity)) {
+      if (!sector || !name || isNaN(price) || isNaN(quantity)) {
         alert('모든 입력 항목을 올바르게 입력해 주세요.');
         return;
       }
 
-      portfolio.unshift(newItem);
-      savePortfolio();
-      renderPortfolio();
+      if (supabaseClient && currentUser) {
+        const { error } = await supabaseClient.from('portfolios').insert([
+          {
+            user_id: currentUser.id,
+            buy_date: date,
+            sector: sector,
+            stock_name: name,
+            buy_price: price,
+            quantity: quantity,
+          },
+        ]);
+        if (error) {
+          alert('클라우드 저장 실패: ' + error.message);
+          return;
+        }
+        await fetchCloudPortfolio();
+      } else {
+        portfolio.unshift({
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+          date,
+          sector,
+          name,
+          price,
+          quantity,
+        });
+        saveLocalPortfolio();
+        renderPortfolio();
+      }
 
-      // 종목명, 단가, 수량 초기화
       stockNameInput.value = '';
       buyPriceInput.value = '';
       quantityInput.value = '';
       stockNameInput.focus();
     });
 
-    // 6. 항목 삭제 (전역 함수로 연결)
-    window.deleteStockItem = function (id) {
-      portfolio = portfolio.filter((item) => item.id !== id);
-      savePortfolio();
-      renderPortfolio();
+    // 종목 삭제
+    window.deleteStockItem = async function (id) {
+      if (supabaseClient && currentUser) {
+        const { error } = await supabaseClient
+          .from('portfolios')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', currentUser.id);
+        if (error) {
+          alert('삭제 실패: ' + error.message);
+          return;
+        }
+        await fetchCloudPortfolio();
+      } else {
+        portfolio = portfolio.filter((item) => item.id !== id);
+        saveLocalPortfolio();
+        renderPortfolio();
+      }
     };
 
-    // 7. AI 상담용 포트폴리오 요약 텍스트 생성
     function buildPortfolioContextText() {
       if (portfolio.length === 0) {
         return '현재 등록된 주식 포트폴리오 내역이 없습니다.';
@@ -440,7 +783,6 @@
       return `총 투자금액: ${totalAmount.toLocaleString()}원\n보유 내역:\n${lines.join('\n')}`;
     }
 
-    // 8. 채팅 메시지 추가 도우미
     function appendMessage(role, text) {
       const wrapper = document.createElement('div');
       if (role === 'user') {
@@ -454,7 +796,6 @@
       return wrapper;
     }
 
-    // 9. Gemini REST API 호출 (gemini-2.5-flash)
     async function askGemini(userQuestion) {
       const apiKey = apiKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY_API_KEY);
       if (!apiKey) {
@@ -514,7 +855,6 @@ ${userQuestion}`;
       }
     }
 
-    // 채팅 폼 전송 이벤트
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const question = chatInput.value.trim();
@@ -523,7 +863,6 @@ ${userQuestion}`;
       askGemini(question);
     });
 
-    // 추천 질문 버튼 클릭 이벤트
     quickPromptBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const promptText = btn.getAttribute('data-prompt');
@@ -533,8 +872,8 @@ ${userQuestion}`;
       });
     });
 
-    // 앱 시작
-    loadFromStorage();
+    initGeminiKey();
+    initSupabase();
   </script>
 </body>
 </html>
