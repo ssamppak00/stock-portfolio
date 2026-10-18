@@ -144,7 +144,7 @@ function toShortDateDisplay(isoStr) {
   return norm;
 }
 
-// [종목코드] 시트의 A열(섹터), E열(종목코드), F열(종목명) 전체 읽기
+// [종목코드] 시트의 B열(섹터), E열(종목코드), F열(종목명) 전체 읽기
 function readStockCodeSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var codeSheet = ss.getSheetByName(STOCK_CODE_SHEET_NAME);
@@ -152,11 +152,11 @@ function readStockCodeSheet() {
   var lastRow = codeSheet.getLastRow();
   if (lastRow &lt; 1) return [];
 
-  // A열(1번째 열) = 섹터, E열(5번째 열) = 종목코드, F열(6번째 열) = 종목명
+  // B열(2번째 열) = 섹터, E열(5번째 열) = 종목코드, F열(6번째 열) = 종목명
   var vals = codeSheet.getRange(1, 1, lastRow, 6).getDisplayValues();
   var list = [];
   for (var i = 0; i &lt; vals.length; i++) {
-    var colA = String(vals[i][0] || '').trim();
+    var colB = String(vals[i][1] || '').trim();
     var colE = String(vals[i][4] || '').trim();
     var colF = String(vals[i][5] || '').trim();
     if (!colE || !colF) continue;
@@ -165,12 +165,12 @@ function readStockCodeSheet() {
       continue;
     }
     var cleanCode = normalizeStockCodeStr(colE);
-    list.push([cleanCode, colF, colA]);
+    list.push([cleanCode, colF, colB]);
   }
   return list;
 }
 
-// [종목코드] 시트(A열: 섹터, E열: 종목코드, F열: 종목명) 우선 참조 + 미등록 종목 네이버 증권 자동완성 보조 검색
+// [종목코드] 시트(B열: 섹터, E열: 종목코드, F열: 종목명) 우선 참조 + 미등록 종목 네이버 증권 자동완성 보조 검색
 function searchStockApi(query) {
   var rawQ = String(query || '').trim();
   var q = rawQ.toUpperCase().replace(/\s+/g, '');
@@ -245,6 +245,14 @@ function searchStockApi(query) {
 
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 &gt; 0, 평균단가 자동계산) 갱신
 function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
+  var codeRows = readStockCodeSheet();
+  var sectorByCode = {};
+  for (var s = 0; s &lt; codeRows.length; s++) {
+    if (codeRows[s][0] &amp;&amp; codeRows[s][2]) {
+      sectorByCode[String(codeRows[s][0]).toUpperCase()] = String(codeRows[s][2]).trim();
+    }
+  }
+
   var lastRow = tradesSheet.getLastRow();
   var trades = [];
   if (lastRow &gt; 1) {
@@ -252,13 +260,16 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
     for (var i = 0; i &lt; vals.length; i++) {
       var r = vals[i];
       if (!r[0]) continue;
+      var gfCode = toGfTicker(r[5]);
+      var cleanC = normalizeStockCodeStr(gfCode);
+      var mappedSec = sectorByCode[cleanC] || String(r[4] || '');
       trades.push({
         id: String(r[0]),
         date: normalizeIsoDate(r[1]),
         type: String(r[2] || 'BUY').toUpperCase(),
         currency: String(r[3] || 'KRW'),
-        sector: String(r[4] || ''),
-        code: toGfTicker(r[5]),
+        sector: mappedSec,
+        code: gfCode,
         name: String(r[6] || ''),
         price: Number(r[7]) || 0,
         quantity: Number(r[8]) || 0,
@@ -304,13 +315,15 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
     var tr = chrono[c];
     var tickerKey = (tr.code || tr.name).trim().toUpperCase();
     if (!tickerKey) continue;
+    var cleanHoldCode = normalizeStockCodeStr(tr.code);
+    var resolvedHoldSector = sectorByCode[cleanHoldCode] || tr.sector || '';
     if (!map[tickerKey]) {
       map[tickerKey] = {
         key: tickerKey,
         code: tr.code,
         name: tr.name,
         currency: tr.currency || 'KRW',
-        sector: tr.sector || '',
+        sector: resolvedHoldSector,
         avgBuyPrice: 0,
         quantity: 0,
         lastDate: tr.date
@@ -318,7 +331,7 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
     }
     var entry = map[tickerKey];
     if (tr.name) entry.name = tr.name;
-    if (tr.sector) entry.sector = tr.sector;
+    if (resolvedHoldSector) entry.sector = resolvedHoldSector;
     if (tr.currency) entry.currency = tr.currency;
     if (tr.code) entry.code = tr.code;
     if (tr.date &gt;= entry.lastDate) entry.lastDate = tr.date;
@@ -375,6 +388,14 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
 
 function readState(tradesSheet, pfSheet) {
   SpreadsheetApp.flush();
+  var stockCodes = readStockCodeSheet();
+  var sectorByCode = {};
+  for (var s = 0; s &lt; stockCodes.length; s++) {
+    if (stockCodes[s][0] &amp;&amp; stockCodes[s][2]) {
+      sectorByCode[String(stockCodes[s][0]).toUpperCase()] = String(stockCodes[s][2]).trim();
+    }
+  }
+
   var trades = [];
   var tLast = tradesSheet.getLastRow();
   if (tLast &gt; 1) {
@@ -382,13 +403,15 @@ function readState(tradesSheet, pfSheet) {
     for (var i = 0; i &lt; tVals.length; i++) {
       var r = tVals[i];
       if (!r[0]) continue;
+      var tCode = String(r[5] || '');
+      var cleanTCode = normalizeStockCodeStr(tCode);
       trades.push({
         id: String(r[0]),
         date: normalizeIsoDate(r[1]),
         type: String(r[2] || 'BUY').toUpperCase(),
         currency: String(r[3] || 'KRW'),
-        sector: String(r[4] || ''),
-        code: String(r[5] || ''),
+        sector: sectorByCode[cleanTCode] || String(r[4] || ''),
+        code: tCode,
         name: String(r[6] || ''),
         price: Number(r[7]) || 0,
         quantity: Number(r[8]) || 0,
@@ -410,12 +433,13 @@ function readState(tradesSheet, pfSheet) {
       var key = (code || name).trim().toUpperCase();
       var avgPrice = Number(p[4]) || 0;
       var curPrice = Number(p[5]) || avgPrice;
+      var cleanPCode = normalizeStockCodeStr(code);
       items.push({
         id: key,
         code: code,
         name: name,
         currency: String(p[2] || 'KRW'),
-        sector: String(p[3] || ''),
+        sector: sectorByCode[cleanPCode] || String(p[3] || ''),
         price: avgPrice,
         currentPrice: curPrice,
         quantity: qty,
@@ -424,7 +448,7 @@ function readState(tradesSheet, pfSheet) {
       });
     }
   }
-  return { ok: true, trades: trades, items: items, stockCodes: readStockCodeSheet() };
+  return { ok: true, trades: trades, items: items, stockCodes: stockCodes };
 }
 
 function doGet(e) {
@@ -442,7 +466,7 @@ function doGet(e) {
     var matchedSector = '';
     var resolvedTicker = ticker;
     var cleanCheck = normalizeStockCodeStr(ticker);
-    // 종목명(예: 'KODEX 200타겟')이 입력된 경우 [종목코드] 시트(A·E·F열)에서 종목코드 먼저 조회
+    // 종목명(예: 'KODEX 200타겟')이 입력된 경우 [종목코드] 시트(B·E·F열)에서 종목코드 먼저 조회
     if (/[가-힣\s]/.test(cleanCheck) || (!/^\d{6}$/.test(cleanCheck) &amp;&amp; !/^\d{4}[0-9A-Z]{2}$/.test(cleanCheck) &amp;&amp; !/^[A-Z.]{1,6}$/.test(cleanCheck))) {
       var found = searchStockApi(ticker);
       if (found &amp;&amp; found.length &gt; 0) {
@@ -452,7 +476,7 @@ function doGet(e) {
       }
     }
 
-    // 종목코드(E열) 기준으로 [종목코드] 시트의 A열(섹터) 및 F열(종목명) 매칭
+    // 종목코드(E열) 기준으로 [종목코드] 시트의 B열(섹터) 및 F열(종목명) 매칭
     var targetCodeNorm = normalizeStockCodeStr(resolvedTicker);
     if (targetCodeNorm) {
       var codeRows = readStockCodeSheet();
@@ -674,7 +698,7 @@ function doPost(e) {
           <div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
               <h2 class="text-base font-bold text-white">➕ 매수/매도 내역</h2>
-              <span id="stockCodeSheetBadge" class="text-xs text-emerald-400">⚡ 구글시트 <strong>종목코드</strong> 시트(A열:섹터 · E열:코드 · F열:종목명) 참조</span>
+              <span id="stockCodeSheetBadge" class="text-xs text-emerald-400">⚡ 구글시트 <strong>종목코드</strong> 시트(B열:섹터 · E열:코드 · F열:종목명) 참조</span>
             </div>
             <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
@@ -714,19 +738,17 @@ function doPost(e) {
                   id="sector"
                   type="text"
                   list="sectorList"
-                  placeholder="종목번호/티커 확정 시 A열에서 자동입력"
+                  placeholder="종목번호/티커 확정 시 B열에서 자동입력"
                   required
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <datalist id="sectorList">
-                  <option value="반도체"></option>
-                  <option value="기술/IT"></option>
-                  <option value="배당/금융"></option>
-                  <option value="2차전지"></option>
-                  <option value="헬스케어"></option>
-                  <option value="자동차/모빌리티"></option>
-                  <option value="방산/조선"></option>
-                  <option value="ETF/지수"></option>
+                  <option value="대체"></option>
+                  <option value="배당"></option>
+                  <option value="성장"></option>
+                  <option value="지수"></option>
+                  <option value="채권"></option>
+                  <option value="현금"></option>
                 </datalist>
               </div>
 
@@ -985,171 +1007,170 @@ function doPost(e) {
     // 외부 API 지연 없이 타이핑 즉시(0ms) 우선 매칭 후 실시간 API 결과와 병합됩니다.
     // =========================================================================
     const BUILTIN_STOCK_DB = [
-      // 국내 대표 주식 (KOSPI / KOSDAQ) 및 자주 쓰는 약칭(aliases)
-      { code: '005930', name: '삼성전자', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['삼전', '삼성전자보통주'] },
-      { code: '005935', name: '삼성전자우', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['삼전우', '삼성전자우선주'] },
-      { code: '000660', name: 'SK하이닉스', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['하닉', '하이닉스', '에스케이하이닉스'] },
-      { code: '042700', name: '한미반도체', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['한미반'] },
-      { code: '058470', name: '리노공업', exchange: 'KOSDAQ', currency: 'KRW', sector: '반도체', aliases: ['리노'] },
-      { code: '005380', name: '현대차', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차', '현대자동차'] },
-      { code: '005385', name: '현대차우', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차우'] },
-      { code: '005387', name: '현대차2우B', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차2우'] },
-      { code: '000270', name: '기아', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['기아차', '기아자동차'] },
-      { code: '012330', name: '현대모비스', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['모비스'] },
-      { code: '373220', name: 'LG에너지솔루션', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['엘앤솔', '엘지엔솔', '엔솔', 'LG엔솔'] },
-      { code: '006400', name: '삼성SDI', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['삼스디', '삼성에스디아이'] },
-      { code: '051910', name: 'LG화학', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['엘화', '엘지화학'] },
-      { code: '005490', name: 'POSCO홀딩스', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['포스코', '포스코홀딩스'] },
-      { code: '003670', name: '포스코퓨처엠', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['퓨처엠', '포스코케미칼'] },
-      { code: '247540', name: '에코프로비엠', exchange: 'KOSDAQ', currency: 'KRW', sector: '2차전지', aliases: ['에코비엠'] },
-      { code: '086520', name: '에코프로', exchange: 'KOSDAQ', currency: 'KRW', sector: '2차전지', aliases: ['에코'] },
-      { code: '066970', name: '엘앤에프', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['L&F'] },
-      { code: '207940', name: '삼성바이오로직스', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['삼바', '삼성바이오'] },
-      { code: '068270', name: '셀트리온', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['셀트'] },
-      { code: '196170', name: '알테오젠', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['알테'] },
-      { code: '326030', name: 'SK바이오팜', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['에스케이바이오팜'] },
-      { code: '000100', name: '유한양행', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['유한'] },
-      { code: '141080', name: '리가켐바이오', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['레고켐바이오'] },
-      { code: '028300', name: 'HLB', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['에이치엘비'] },
-      { code: '035420', name: 'NAVER', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['네이버'] },
-      { code: '035720', name: '카카오', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['카톡'] },
-      { code: '323410', name: '카카오뱅크', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['카뱅'] },
-      { code: '377300', name: '카카오페이', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['카페'] },
-      { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['배그'] },
-      { code: '036570', name: '엔씨소프트', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['엔씨', 'NC소프트'] },
-      { code: '066570', name: 'LG전자', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['엘전', '엘지전자'] },
-      { code: '009150', name: '삼성전기', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['삼전기'] },
-      { code: '018260', name: '삼성에스디에스', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['삼성SDS'] },
-      { code: '277810', name: '레인보우로보틱스', exchange: 'KOSDAQ', currency: 'KRW', sector: '기술/IT', aliases: ['레인보우'] },
-      { code: '454910', name: '두산로보틱스', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['두산로보'] },
-      { code: '105560', name: 'KB금융', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['국민은행', '케이비금융'] },
-      { code: '055550', name: '신한지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['신한금융', '신한은행'] },
-      { code: '086790', name: '하나금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['하나금융', '하나은행'] },
-      { code: '316140', name: '우리금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['우리금융', '우리은행'] },
-      { code: '138040', name: '메리츠금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['메리츠', '메리츠금융'] },
-      { code: '032830', name: '삼성생명', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼생'] },
-      { code: '000810', name: '삼성화재', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼화'] },
-      { code: '005830', name: 'DB손해보험', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['디비손보', 'DB손보'] },
-      { code: '017670', name: 'SK텔레콤', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['SKT', '에스케이텔레콤'] },
-      { code: '030200', name: 'KT', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['케이티'] },
-      { code: '032640', name: 'LG유플러스', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['유플러스', 'LGU+'] },
-      { code: '033780', name: 'KT&G', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['케이티앤지', '담배인삼공사'] },
-      { code: '015760', name: '한국전력', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['한전'] },
-      { code: '012450', name: '한화에어로스페이스', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['한화에어로', '한에어로'] },
-      { code: '064350', name: '현대로템', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['로템'] },
-      { code: '079550', name: 'LIG넥스원', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['넥스원', '엘아이지넥스원'] },
-      { code: '047810', name: '한국항공우주', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['KAI', '카이'] },
-      { code: '329180', name: 'HD현대중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['현대중공업', '현중'] },
-      { code: '009540', name: 'HD한국조선해양', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['한국조선해양'] },
-      { code: '042660', name: '한화오션', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['대우조선해양'] },
-      { code: '010140', name: '삼성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['삼중'] },
-      { code: '034020', name: '두산에너빌리티', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['두에빌', '두산중공업'] },
-      { code: '267260', name: 'HD현대일렉트릭', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['현대일렉트릭'] },
-      { code: '298040', name: '효성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['효성중'] },
-      { code: '010120', name: 'LS ELECTRIC', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['LS일렉트릭', '엘에스일렉트릭'] },
-      { code: '028260', name: '삼성물산', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼물'] },
-      { code: '003550', name: 'LG', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['엘지'] },
-      { code: '034730', name: 'SK', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['에스케이'] },
-      { code: '096770', name: 'SK이노베이션', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['SK이노', '에스케이이노베이션'] },
-      { code: '010950', name: 'S-Oil', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['에쓰오일', '에스오일'] },
-      { code: '010130', name: '고려아연', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: [] },
-      { code: '011200', name: 'HMM', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['현대상선'] },
-      { code: '003490', name: '대한항공', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['칼'] },
-      { code: '000720', name: '현대건설', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['현건'] },
-      { code: '028050', name: '삼성E&A', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['삼성엔지니어링'] },
-      { code: '097950', name: 'CJ제일제당', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['제일제당'] },
-      { code: '003230', name: '삼양식품', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['불닭'] },
-      { code: '090430', name: '아모레퍼시픽', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['아모레'] },
-      { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: [] },
-      { code: '352820', name: '하이브', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['HYBE', '방탄'] },
-      { code: '035900', name: 'JYP Ent.', exchange: 'KOSDAQ', currency: 'KRW', sector: '기타', aliases: ['JYP', '제이와이피'] },
+      // 국내 대표 주식 (KOSPI / KOSDAQ) 및 자주 쓰는 약칭(aliases) - 섹터: 대체, 배당, 성장, 지수, 채권, 현금
+      { code: '005930', name: '삼성전자', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼전', '삼성전자보통주'] },
+      { code: '005935', name: '삼성전자우', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['삼전우', '삼성전자우선주'] },
+      { code: '000660', name: 'SK하이닉스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['하닉', '하이닉스', '에스케이하이닉스'] },
+      { code: '042700', name: '한미반도체', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['한미반'] },
+      { code: '058470', name: '리노공업', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['리노'] },
+      { code: '005380', name: '현대차', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['현차', '현대자동차'] },
+      { code: '005385', name: '현대차우', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['현차우'] },
+      { code: '005387', name: '현대차2우B', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['현차2우'] },
+      { code: '000270', name: '기아', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['기아차', '기아자동차'] },
+      { code: '012330', name: '현대모비스', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['모비스'] },
+      { code: '373220', name: 'LG에너지솔루션', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['엘앤솔', '엘지엔솔', '엔솔', 'LG엔솔'] },
+      { code: '006400', name: '삼성SDI', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼스디', '삼성에스디아이'] },
+      { code: '051910', name: 'LG화학', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['엘화', '엘지화학'] },
+      { code: '005490', name: 'POSCO홀딩스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['포스코', '포스코홀딩스'] },
+      { code: '003670', name: '포스코퓨처엠', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['퓨처엠', '포스코케미칼'] },
+      { code: '247540', name: '에코프로비엠', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['에코비엠'] },
+      { code: '086520', name: '에코프로', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['에코'] },
+      { code: '066970', name: '엘앤에프', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['L&F'] },
+      { code: '207940', name: '삼성바이오로직스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼바', '삼성바이오'] },
+      { code: '068270', name: '셀트리온', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['셀트'] },
+      { code: '196170', name: '알테오젠', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['알테'] },
+      { code: '326030', name: 'SK바이오팜', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['에스케이바이오팜'] },
+      { code: '000100', name: '유한양행', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['유한'] },
+      { code: '141080', name: '리가켐바이오', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['레고켐바이오'] },
+      { code: '028300', name: 'HLB', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['에이치엘비'] },
+      { code: '035420', name: 'NAVER', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['네이버'] },
+      { code: '035720', name: '카카오', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['카톡'] },
+      { code: '323410', name: '카카오뱅크', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['카뱅'] },
+      { code: '377300', name: '카카오페이', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['카페'] },
+      { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['배그'] },
+      { code: '036570', name: '엔씨소프트', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['엔씨', 'NC소프트'] },
+      { code: '066570', name: 'LG전자', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['엘전', '엘지전자'] },
+      { code: '009150', name: '삼성전기', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼전기'] },
+      { code: '018260', name: '삼성에스디에스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼성SDS'] },
+      { code: '277810', name: '레인보우로보틱스', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['레인보우'] },
+      { code: '454910', name: '두산로보틱스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['두산로보'] },
+      { code: '105560', name: 'KB금융', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['국민은행', '케이비금융'] },
+      { code: '055550', name: '신한지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['신한금융', '신한은행'] },
+      { code: '086790', name: '하나금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['하나금융', '하나은행'] },
+      { code: '316140', name: '우리금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['우리금융', '우리은행'] },
+      { code: '138040', name: '메리츠금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['메리츠', '메리츠금융'] },
+      { code: '032830', name: '삼성생명', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['삼생'] },
+      { code: '000810', name: '삼성화재', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['삼화'] },
+      { code: '005830', name: 'DB손해보험', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['디비손보', 'DB손보'] },
+      { code: '017670', name: 'SK텔레콤', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['SKT', '에스케이텔레콤'] },
+      { code: '030200', name: 'KT', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['케이티'] },
+      { code: '032640', name: 'LG유플러스', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['유플러스', 'LGU+'] },
+      { code: '033780', name: 'KT&G', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['케이티앤지', '담배인삼공사'] },
+      { code: '015760', name: '한국전력', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['한전'] },
+      { code: '012450', name: '한화에어로스페이스', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['한화에어로', '한에어로'] },
+      { code: '064350', name: '현대로템', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['로템'] },
+      { code: '079550', name: 'LIG넥스원', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['넥스원', '엘아이지넥스원'] },
+      { code: '047810', name: '한국항공우주', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['KAI', '카이'] },
+      { code: '329180', name: 'HD현대중공업', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['현대중공업', '현중'] },
+      { code: '009540', name: 'HD한국조선해양', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['한국조선해양'] },
+      { code: '042660', name: '한화오션', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['대우조선해양'] },
+      { code: '010140', name: '삼성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼중'] },
+      { code: '034020', name: '두산에너빌리티', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['두에빌', '두산중공업'] },
+      { code: '267260', name: 'HD현대일렉트릭', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['현대일렉트릭'] },
+      { code: '298040', name: '효성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['효성중'] },
+      { code: '010120', name: 'LS ELECTRIC', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['LS일렉트릭', '엘에스일렉트릭'] },
+      { code: '028260', name: '삼성물산', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['삼물'] },
+      { code: '003550', name: 'LG', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['엘지'] },
+      { code: '034730', name: 'SK', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['에스케이'] },
+      { code: '096770', name: 'SK이노베이션', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['SK이노', '에스케이이노베이션'] },
+      { code: '010950', name: 'S-Oil', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['에쓰오일', '에스오일'] },
+      { code: '010130', name: '고려아연', exchange: 'KOSPI', currency: 'KRW', sector: '대체', aliases: [] },
+      { code: '011200', name: 'HMM', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['현대상선'] },
+      { code: '003490', name: '대한항공', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['칼'] },
+      { code: '000720', name: '현대건설', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['현건'] },
+      { code: '028050', name: '삼성E&A', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['삼성엔지니어링'] },
+      { code: '097950', name: 'CJ제일제당', exchange: 'KOSPI', currency: 'KRW', sector: '배당', aliases: ['제일제당'] },
+      { code: '003230', name: '삼양식품', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['불닭'] },
+      { code: '090430', name: '아모레퍼시픽', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['아모레'] },
+      { code: '352820', name: '하이브', exchange: 'KOSPI', currency: 'KRW', sector: '성장', aliases: ['HYBE', '방탄'] },
+      { code: '035900', name: 'JYP Ent.', exchange: 'KOSDAQ', currency: 'KRW', sector: '성장', aliases: ['JYP', '제이와이피'] },
       // 국내 주요 ETF (KODEX / TIGER / ACE / SOL / RISE)
-      { code: '069500', name: 'KODEX 200', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스200'] },
-      { code: '483280', name: 'KODEX 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['KODEX 200타겟', '코덱스200타겟', '코덱스200타겟위클리커버드콜'] },
-      { code: '278530', name: 'KODEX 200TR', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스200TR'] },
-      { code: '252670', name: 'KODEX 200선물인버스2X', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['곱버스', '코덱스200선물인버스2X'] },
-      { code: '252710', name: 'KODEX 200동일가중', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: [] },
-      { code: '284430', name: 'KODEX 200미국채혼합', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: [] },
-      { code: '122630', name: 'KODEX 레버리지', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스레버리지'] },
-      { code: '114800', name: 'KODEX 인버스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스인버스'] },
-      { code: '379800', name: 'KODEX 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스S&P500', 'KODEX 미국S&P500TR'] },
-      { code: '379810', name: 'KODEX 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스나스닥100', 'KODEX 미국나스닥100TR'] },
-      { code: '489250', name: 'KODEX 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코미당'] },
-      { code: '483290', name: 'KODEX 미국배당다우존스타겟커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['KODEX 미국배당다우존스타겟'] },
-      { code: '441640', name: 'KODEX 미국배당커버드콜액티브', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스미국배당커버드콜'] },
-      { code: '102110', name: 'TIGER 200', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거200'] },
-      { code: '491620', name: 'TIGER 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['TIGER 200타겟', '타이거200타겟위클리커버드콜'] },
-      { code: '475720', name: 'RISE 200위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['라이즈200위클리커버드콜'] },
-      { code: '360750', name: 'TIGER 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거S&P500', '타이거미국S&P500'] },
-      { code: '133690', name: 'TIGER 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거나스닥100', '타이거미국나스닥100'] },
-      { code: '458730', name: 'TIGER 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타미당', '한국판SCHD', '타이거미국배당'] },
-      { code: '458760', name: 'TIGER 미국배당다우존스타겟커버드콜2호', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거미국배당타겟2호'] },
-      { code: '381180', name: 'TIGER 미국필라델피아반도체나스닥', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거필라델피아반도체'] },
-      { code: '381170', name: 'TIGER 미국테크TOP10 INDXX', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거미국테크탑10'] },
-      { code: '360200', name: 'ACE 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에이스S&P500'] },
-      { code: '367380', name: 'ACE 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에이스나스닥100'] },
-      { code: '402970', name: 'ACE 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에미당'] },
-      { code: '446720', name: 'SOL 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['솔미당'] },
+      { code: '069500', name: 'KODEX 200', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스200'] },
+      { code: '483280', name: 'KODEX 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['KODEX 200타겟', '코덱스200타겟', '코덱스200타겟위클리커버드콜'] },
+      { code: '278530', name: 'KODEX 200TR', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스200TR'] },
+      { code: '252670', name: 'KODEX 200선물인버스2X', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['곱버스', '코덱스200선물인버스2X'] },
+      { code: '252710', name: 'KODEX 200동일가중', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: [] },
+      { code: '284430', name: 'KODEX 200미국채혼합', exchange: 'ETF', currency: 'KRW', sector: '채권', aliases: [] },
+      { code: '122630', name: 'KODEX 레버리지', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스레버리지'] },
+      { code: '114800', name: 'KODEX 인버스', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스인버스'] },
+      { code: '379800', name: 'KODEX 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스S&P500', 'KODEX 미국S&P500TR'] },
+      { code: '379810', name: 'KODEX 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['코덱스나스닥100', 'KODEX 미국나스닥100TR'] },
+      { code: '489250', name: 'KODEX 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['코미당'] },
+      { code: '483290', name: 'KODEX 미국배당다우존스타겟커버드콜', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['KODEX 미국배당다우존스타겟'] },
+      { code: '441640', name: 'KODEX 미국배당커버드콜액티브', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['코덱스미국배당커버드콜'] },
+      { code: '102110', name: 'TIGER 200', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['타이거200'] },
+      { code: '491620', name: 'TIGER 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['TIGER 200타겟', '타이거200타겟위클리커버드콜'] },
+      { code: '475720', name: 'RISE 200위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['라이즈200위클리커버드콜'] },
+      { code: '360750', name: 'TIGER 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['타이거S&P500', '타이거미국S&P500'] },
+      { code: '133690', name: 'TIGER 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['타이거나스닥100', '타이거미국나스닥100'] },
+      { code: '458730', name: 'TIGER 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['타미당', '한국판SCHD', '타이거미국배당'] },
+      { code: '458760', name: 'TIGER 미국배당다우존스타겟커버드콜2호', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['타이거미국배당타겟2호'] },
+      { code: '381180', name: 'TIGER 미국필라델피아반도체나스닥', exchange: 'ETF', currency: 'KRW', sector: '성장', aliases: ['타이거필라델피아반도체'] },
+      { code: '381170', name: 'TIGER 미국테크TOP10 INDXX', exchange: 'ETF', currency: 'KRW', sector: '성장', aliases: ['타이거미국테크탑10'] },
+      { code: '360200', name: 'ACE 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['에이스S&P500'] },
+      { code: '367380', name: 'ACE 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: '지수', aliases: ['에이스나스닥100'] },
+      { code: '402970', name: 'ACE 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['에미당'] },
+      { code: '446720', name: 'SOL 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: '배당', aliases: ['솔미당'] },
 
       // 미국 대표 주식 & ETF (티커, 영문명, 한글명 모두 검색 가능)
-      { code: 'AAPL', name: 'Apple Inc. (애플)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['애플', 'APPLE'] },
-      { code: 'MSFT', name: 'Microsoft Corp. (마이크로소프트)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['마이크로소프트', '마소', 'MICROSOFT'] },
-      { code: 'NVDA', name: 'NVIDIA Corp. (엔비디아)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['엔비디아', 'NVIDIA'] },
-      { code: 'GOOGL', name: 'Alphabet Inc. Class A (구글)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['구글', '알파벳', 'GOOGLE', 'ALPHABET'] },
-      { code: 'GOOG', name: 'Alphabet Inc. Class C (구글 C)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['구글C', '알파벳C'] },
-      { code: 'AMZN', name: 'Amazon.com Inc. (아마존)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['아마존', 'AMAZON'] },
-      { code: 'META', name: 'Meta Platforms Inc. (메타)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['메타', '페이스북', 'FACEBOOK'] },
-      { code: 'TSLA', name: 'Tesla Inc. (테슬라)', exchange: 'NASDAQ', currency: 'USD', sector: '자동차/모빌리티', aliases: ['테슬라', 'TESLA'] },
-      { code: 'AVGO', name: 'Broadcom Inc. (브로드컴)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['브로드컴', 'BROADCOM'] },
-      { code: 'TSM', name: 'TSMC (대만반도체)', exchange: 'NYSE', currency: 'USD', sector: '반도체', aliases: ['TSMC', '티에스엠씨', '대만반도체'] },
-      { code: 'AMD', name: 'Advanced Micro Devices (AMD)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['에이엠디', '암드'] },
-      { code: 'INTC', name: 'Intel Corp. (인텔)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['인텔', 'INTEL'] },
-      { code: 'MU', name: 'Micron Technology (마이크론)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['마이크론', 'MICRON'] },
-      { code: 'QCOM', name: 'Qualcomm Inc. (퀄컴)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['퀄컴', 'QUALCOMM'] },
-      { code: 'ASML', name: 'ASML Holding NV (ASML)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['에이에스엠엘'] },
-      { code: 'ARM', name: 'Arm Holdings plc (암홀딩스)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['암홀딩스'] },
-      { code: 'PLTR', name: 'Palantir Technologies (팔란티어)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['팔란티어', 'PALANTIR'] },
-      { code: 'IONQ', name: 'IonQ Inc. (아이온큐)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['아이온큐'] },
-      { code: 'NFLX', name: 'Netflix Inc. (넷플릭스)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['넷플릭스', 'NETFLIX'] },
-      { code: 'ORCL', name: 'Oracle Corp. (오라클)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['오라클', 'ORACLE'] },
-      { code: 'CRM', name: 'Salesforce Inc. (세일즈포스)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['세일즈포스', 'SALESFORCE'] },
-      { code: 'NOW', name: 'ServiceNow Inc. (서비스나우)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['서비스나우'] },
-      { code: 'SNOW', name: 'Snowflake Inc. (스노우플레이크)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['스노우플레이크'] },
-      { code: 'COIN', name: 'Coinbase Global (코인베이스)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['코인베이스', 'COINBASE'] },
-      { code: 'MSTR', name: 'MicroStrategy Inc. (스트래티지)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['마이크로스트래티지', '스트래티지'] },
-      { code: 'BRK.B', name: 'Berkshire Hathaway Class B (버크셔 해서웨이)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['버크셔', '버크셔해서웨이', 'BRKB'] },
-      { code: 'LLY', name: 'Eli Lilly & Co. (일라이릴리)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['일라이릴리', '릴리'] },
-      { code: 'NVO', name: 'Novo Nordisk (노보노디스크)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['노보노디스크'] },
-      { code: 'UNH', name: 'UnitedHealth Group (유나이티드헬스)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['유나이티드헬스'] },
-      { code: 'JNJ', name: 'Johnson & Johnson (존슨앤드존슨)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['존슨앤드존슨', '존슨앤존슨'] },
-      { code: 'JPM', name: 'JPMorgan Chase & Co. (JP모건)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['제이피모건', 'JP모건'] },
-      { code: 'V', name: 'Visa Inc. (비자)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['비자', 'VISA'] },
-      { code: 'MA', name: 'Mastercard Inc. (마스터카드)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['마스터카드', 'MASTERCARD'] },
-      { code: 'COST', name: 'Costco Wholesale (코스트코)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['코스트코', 'COSTCO'] },
-      { code: 'WMT', name: 'Walmart Inc. (월마트)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['월마트', 'WALMART'] },
-      { code: 'KO', name: 'Coca-Cola Co. (코카콜라)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['코카콜라', 'COCACOLA'] },
-      { code: 'PEP', name: 'PepsiCo Inc. (펩시코)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['펩시', '펩시코'] },
-      { code: 'MCD', name: "McDonald's Corp. (맥도날드)", exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['맥도날드'] },
-      { code: 'SBUX', name: 'Starbucks Corp. (스타벅스)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['스타벅스', '스벅'] },
-      { code: 'O', name: 'Realty Income Corp. (리얼티인컴)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['리얼티인컴', 'REALTY INCOME'] },
+      { code: 'AAPL', name: 'Apple Inc. (애플)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['애플', 'APPLE'] },
+      { code: 'MSFT', name: 'Microsoft Corp. (마이크로소프트)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['마이크로소프트', '마소', 'MICROSOFT'] },
+      { code: 'NVDA', name: 'NVIDIA Corp. (엔비디아)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['엔비디아', 'NVIDIA'] },
+      { code: 'GOOGL', name: 'Alphabet Inc. Class A (구글)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['구글', '알파벳', 'GOOGLE', 'ALPHABET'] },
+      { code: 'GOOG', name: 'Alphabet Inc. Class C (구글 C)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['구글C', '알파벳C'] },
+      { code: 'AMZN', name: 'Amazon.com Inc. (아마존)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['아마존', 'AMAZON'] },
+      { code: 'META', name: 'Meta Platforms Inc. (메타)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['메타', '페이스북', 'FACEBOOK'] },
+      { code: 'TSLA', name: 'Tesla Inc. (테슬라)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['테슬라', 'TESLA'] },
+      { code: 'AVGO', name: 'Broadcom Inc. (브로드컴)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['브로드컴', 'BROADCOM'] },
+      { code: 'TSM', name: 'TSMC (대만반도체)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['TSMC', '티에스엠씨', '대만반도체'] },
+      { code: 'AMD', name: 'Advanced Micro Devices (AMD)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['에이엠디', '암드'] },
+      { code: 'INTC', name: 'Intel Corp. (인텔)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['인텔', 'INTEL'] },
+      { code: 'MU', name: 'Micron Technology (마이크론)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['마이크론', 'MICRON'] },
+      { code: 'QCOM', name: 'Qualcomm Inc. (퀄컴)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['퀄컴', 'QUALCOMM'] },
+      { code: 'ASML', name: 'ASML Holding NV (ASML)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['에이에스엠엘'] },
+      { code: 'ARM', name: 'Arm Holdings plc (암홀딩스)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['암홀딩스'] },
+      { code: 'PLTR', name: 'Palantir Technologies (팔란티어)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['팔란티어', 'PALANTIR'] },
+      { code: 'IONQ', name: 'IonQ Inc. (아이온큐)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['아이온큐'] },
+      { code: 'NFLX', name: 'Netflix Inc. (넷플릭스)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['넷플릭스', 'NETFLIX'] },
+      { code: 'ORCL', name: 'Oracle Corp. (오라클)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['오라클', 'ORACLE'] },
+      { code: 'CRM', name: 'Salesforce Inc. (세일즈포스)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['세일즈포스', 'SALESFORCE'] },
+      { code: 'NOW', name: 'ServiceNow Inc. (서비스나우)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['서비스나우'] },
+      { code: 'SNOW', name: 'Snowflake Inc. (스노우플레이크)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['스노우플레이크'] },
+      { code: 'COIN', name: 'Coinbase Global (코인베이스)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['코인베이스', 'COINBASE'] },
+      { code: 'MSTR', name: 'MicroStrategy Inc. (스트래티지)', exchange: 'NASDAQ', currency: 'USD', sector: '대체', aliases: ['마이크로스트래티지', '스트래티지'] },
+      { code: 'BRK.B', name: 'Berkshire Hathaway Class B (버크셔 해서웨이)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['버크셔', '버크셔해서웨이', 'BRKB'] },
+      { code: 'LLY', name: 'Eli Lilly & Co. (일라이릴리)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['일라이릴리', '릴리'] },
+      { code: 'NVO', name: 'Novo Nordisk (노보노디스크)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['노보노디스크'] },
+      { code: 'UNH', name: 'UnitedHealth Group (유나이티드헬스)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['유나이티드헬스'] },
+      { code: 'JNJ', name: 'Johnson & Johnson (존슨앤드존슨)', exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['존슨앤드존슨', '존슨앤존슨'] },
+      { code: 'JPM', name: 'JPMorgan Chase & Co. (JP모건)', exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['제이피모건', 'JP모건'] },
+      { code: 'V', name: 'Visa Inc. (비자)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['비자', 'VISA'] },
+      { code: 'MA', name: 'Mastercard Inc. (마스터카드)', exchange: 'NYSE', currency: 'USD', sector: '성장', aliases: ['마스터카드', 'MASTERCARD'] },
+      { code: 'COST', name: 'Costco Wholesale (코스트코)', exchange: 'NASDAQ', currency: 'USD', sector: '성장', aliases: ['코스트코', 'COSTCO'] },
+      { code: 'WMT', name: 'Walmart Inc. (월마트)', exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['월마트', 'WALMART'] },
+      { code: 'KO', name: 'Coca-Cola Co. (코카콜라)', exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['코카콜라', 'COCACOLA'] },
+      { code: 'PEP', name: 'PepsiCo Inc. (펩시코)', exchange: 'NASDAQ', currency: 'USD', sector: '배당', aliases: ['펩시', '펩시코'] },
+      { code: 'MCD', name: "McDonald's Corp. (맥도날드)", exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['맥도날드'] },
+      { code: 'SBUX', name: 'Starbucks Corp. (스타벅스)', exchange: 'NASDAQ', currency: 'USD', sector: '배당', aliases: ['스타벅스', '스벅'] },
+      { code: 'O', name: 'Realty Income Corp. (리얼티인컴)', exchange: 'NYSE', currency: 'USD', sector: '배당', aliases: ['리얼티인컴', 'REALTY INCOME'] },
       // 미국 대표 ETF
-      { code: 'SPY', name: 'SPDR S&P 500 ETF Trust', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['S&P500', '스파이'] },
-      { code: 'VOO', name: 'Vanguard S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['뱅가드S&P500', '부'] },
-      { code: 'IVV', name: 'iShares Core S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['아이셰어즈S&P500'] },
-      { code: 'QQQ', name: 'Invesco QQQ Trust (나스닥100)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['큐큐큐', '나스닥100'] },
-      { code: 'QQQM', name: 'Invesco NASDAQ 100 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['큐큐큐엠'] },
-      { code: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF (슈드)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['슈드', '미국배당다우존스'] },
-      { code: 'JEPI', name: 'JPMorgan Equity Premium Income ETF (제피)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['제피'] },
-      { code: 'JEPQ', name: 'JPMorgan Nasdaq Equity Premium Income ETF (젭큐)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['젭큐', '제피큐'] },
-      { code: 'TQQQ', name: 'ProShares UltraPro QQQ (나스닥 3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티큐', '티큐큐큐'] },
-      { code: 'SQQQ', name: 'ProShares UltraPro Short QQQ (나스닥 -3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['스큐'] },
-      { code: 'SOXX', name: 'iShares Semiconductor ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['필라델피아반도체'] },
-      { code: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3X (반도체 3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['속슬', '소옥슬'] },
-      { code: 'SOXS', name: 'Direxion Daily Semiconductor Bear 3X (반도체 -3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['속스'] },
-      { code: 'TLT', name: 'iShares 20+ Year Treasury Bond ETF (미국장기채)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티엘티', '미국장기채'] },
-      { code: 'TMF', name: 'Direxion Daily 20+ Year Treasury Bull 3X', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티엠에프'] },
-      { code: 'NVDL', name: 'GraniteShares 2x Long NVDA Daily ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['엔비디아2배'] },
-      { code: 'TSLL', name: 'Direxion Daily TSLA Bull 2X Shares', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['테슬라2배'] },
+      { code: 'SPY', name: 'SPDR S&P 500 ETF Trust', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['S&P500', '스파이'] },
+      { code: 'VOO', name: 'Vanguard S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['뱅가드S&P500', '부'] },
+      { code: 'IVV', name: 'iShares Core S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['아이셰어즈S&P500'] },
+      { code: 'QQQ', name: 'Invesco QQQ Trust (나스닥100)', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['큐큐큐', '나스닥100'] },
+      { code: 'QQQM', name: 'Invesco NASDAQ 100 ETF', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['큐큐큐엠'] },
+      { code: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF (슈드)', exchange: 'ETF', currency: 'USD', sector: '배당', aliases: ['슈드', '미국배당다우존스'] },
+      { code: 'JEPI', name: 'JPMorgan Equity Premium Income ETF (제피)', exchange: 'ETF', currency: 'USD', sector: '배당', aliases: ['제피'] },
+      { code: 'JEPQ', name: 'JPMorgan Nasdaq Equity Premium Income ETF (젭큐)', exchange: 'ETF', currency: 'USD', sector: '배당', aliases: ['젭큐', '제피큐'] },
+      { code: 'TQQQ', name: 'ProShares UltraPro QQQ (나스닥 3배)', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['티큐', '티큐큐큐'] },
+      { code: 'SQQQ', name: 'ProShares UltraPro Short QQQ (나스닥 -3배)', exchange: 'ETF', currency: 'USD', sector: '지수', aliases: ['스큐'] },
+      { code: 'SOXX', name: 'iShares Semiconductor ETF', exchange: 'ETF', currency: 'USD', sector: '성장', aliases: ['필라델피아반도체'] },
+      { code: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3X (반도체 3배)', exchange: 'ETF', currency: 'USD', sector: '성장', aliases: ['속슬', '소옥슬'] },
+      { code: 'SOXS', name: 'Direxion Daily Semiconductor Bear 3X (반도체 -3배)', exchange: 'ETF', currency: 'USD', sector: '성장', aliases: ['속스'] },
+      { code: 'TLT', name: 'iShares 20+ Year Treasury Bond ETF (미국장기채)', exchange: 'ETF', currency: 'USD', sector: '채권', aliases: ['티엘티', '미국장기채'] },
+      { code: 'TMF', name: 'Direxion Daily 20+ Year Treasury Bull 3X', exchange: 'ETF', currency: 'USD', sector: '채권', aliases: ['티엠에프'] },
+      { code: 'NVDL', name: 'GraniteShares 2x Long NVDA Daily ETF', exchange: 'ETF', currency: 'USD', sector: '성장', aliases: ['엔비디아2배'] },
+      { code: 'TSLL', name: 'Direxion Daily TSLA Bull 2X Shares', exchange: 'ETF', currency: 'USD', sector: '성장', aliases: ['테슬라2배'] },
     ];
 
     // DOM 참조
@@ -1232,46 +1253,70 @@ function doPost(e) {
     });
 
     // =========================================================================
-    // 구글 시트 [종목코드] 시트 (A열: 섹터, E열: 종목코드, F열: 종목명) 기반 종목 검색 엔진
+    // 구글 시트 [종목코드] 시트 (B열: 섹터, E열: 종목코드, F열: 종목명) 기반 종목 검색 엔진
     // =========================================================================
     function updateStockCodeSheetBadge() {
       const badgeEl = document.getElementById('stockCodeSheetBadge');
       if (!badgeEl) return;
       if (sheetStockCodes.length > 0) {
-        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(A열:섹터·E열:코드·F열:종목명) <strong>${sheetStockCodes.length.toLocaleString('ko-KR')}종목</strong> 연동됨`;
+        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(B열:섹터·E열:코드·F열:종목명) <strong>${sheetStockCodes.length.toLocaleString('ko-KR')}종목</strong> 연동됨`;
       } else {
-        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(A열:섹터 · E열:코드 · F열:종목명) 참조`;
+        badgeEl.innerHTML = `⚡ 구글시트 <strong>종목코드</strong> 시트(B열:섹터 · E열:코드 · F열:종목명) 참조`;
       }
     }
 
-    // 종목번호/티커(E열)가 확정되면 구글시트 [종목코드] 시트의 A열에서 섹터를 찾아 반환
-    function lookupSectorByStockCode(rawCode) {
+    // 기존 구형 섹터명(반도체 등)을 신규 6대 섹터(대체, 배당, 성장, 지수, 채권, 현금)로 변환
+    function normalizeSectorCategory(rawSector) {
+      const s = String(rawSector || '').trim();
+      if (!s) return '';
+      const legacyMap = {
+        '반도체': '성장',
+        '기술/IT': '성장',
+        '2차전지': '성장',
+        '헬스케어': '성장',
+        '자동차/모빌리티': '성장',
+        '방산/조선': '성장',
+        '배당/금융': '배당',
+        'ETF/지수': '지수',
+        '기타': '대체',
+      };
+      return legacyMap[s] || s;
+    }
+
+    // 종목번호/티커(E열)가 확정되면 구글시트 [종목코드] 시트의 B열에서 섹터를 찾아 반환
+    function lookupSectorByStockCode(rawCode, fallbackSector = '') {
       const cleanCode = formatDisplayStockCode(rawCode);
-      if (!cleanCode || cleanCode === '-') return '';
-
-      // 1순위: 구글 시트 [종목코드] 시트 (E열 종목코드 -> A열 섹터)
-      const sheetHit = sheetStockCodes.find(
-        (item) => formatDisplayStockCode(item.code) === cleanCode && item.sector
-      );
-      if (sheetHit && sheetHit.sector) {
-        return sheetHit.sector;
+      if (cleanCode && cleanCode !== '-') {
+        // 1순위: 구글 시트 [종목코드] 시트 (E열 종목코드 -> B열 섹터)
+        const sheetHit = sheetStockCodes.find(
+          (item) => formatDisplayStockCode(item.code) === cleanCode && item.sector
+        );
+        if (sheetHit && sheetHit.sector) {
+          return sheetHit.sector;
+        }
       }
 
-      // 2순위: 현재 보유 포트폴리오 내역의 섹터
-      const gfKey = toGoogleFinanceTicker(cleanCode);
-      const pfHit = portfolio.find(
-        (p) => (formatDisplayStockCode(p.code) === cleanCode || p.code === gfKey || p.id === gfKey) && p.sector
-      );
-      if (pfHit && pfHit.sector) {
-        return pfHit.sector;
+      if (fallbackSector) {
+        return normalizeSectorCategory(fallbackSector);
       }
 
-      // 3순위: 기본 내장 종목 사전의 섹터
-      const builtinHit = BUILTIN_STOCK_DB.find(
-        (b) => formatDisplayStockCode(b.code) === cleanCode && b.sector
-      );
-      if (builtinHit && builtinHit.sector) {
-        return builtinHit.sector;
+      if (cleanCode && cleanCode !== '-') {
+        // 2순위: 현재 보유 포트폴리오 내역의 섹터
+        const gfKey = toGoogleFinanceTicker(cleanCode);
+        const pfHit = portfolio.find(
+          (p) => (formatDisplayStockCode(p.code) === cleanCode || p.code === gfKey || p.id === gfKey) && p.sector
+        );
+        if (pfHit && pfHit.sector) {
+          return normalizeSectorCategory(pfHit.sector);
+        }
+
+        // 3순위: 기본 내장 종목 사전의 섹터
+        const builtinHit = BUILTIN_STOCK_DB.find(
+          (b) => formatDisplayStockCode(b.code) === cleanCode && b.sector
+        );
+        if (builtinHit && builtinHit.sector) {
+          return normalizeSectorCategory(builtinHit.sector);
+        }
       }
 
       return '';
@@ -1284,7 +1329,7 @@ function doPost(e) {
       const dynamicPool = [];
       const seenCodes = new Set();
 
-      // 1순위: 구글 시트의 [종목코드] 시트 A열(섹터) · E열(종목코드) · F열(종목명) 데이터
+      // 1순위: 구글 시트의 [종목코드] 시트 B열(섹터) · E열(종목코드) · F열(종목명) 데이터
       sheetStockCodes.forEach((item) => {
         const cleanCode = formatDisplayStockCode(item.code);
         if (cleanCode && cleanCode !== '-' && !seenCodes.has(cleanCode)) {
@@ -1755,10 +1800,15 @@ function doPost(e) {
     }
 
     function rebuildLocalPortfolioFromTrades() {
-      trades = trades.map((t) => ({
-        ...t,
-        date: normalizeDateKey(t.date),
-      }));
+      trades = trades.map((t) => {
+        const cleanC = toGoogleFinanceTicker(t.code || '');
+        const resolvedSec = lookupSectorByStockCode(cleanC, t.sector) || '대체';
+        return {
+          ...t,
+          date: normalizeDateKey(t.date),
+          sector: resolvedSec,
+        };
+      });
 
       trades.sort((a, b) => {
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
@@ -1772,6 +1822,7 @@ function doPost(e) {
         const code = toGoogleFinanceTicker(tr.code || '');
         const key = (code || tr.name || '').trim().toUpperCase();
         if (!key) return;
+        const resolvedSec = lookupSectorByStockCode(code, tr.sector) || '대체';
 
         if (!map[key]) {
           map[key] = {
@@ -1779,7 +1830,7 @@ function doPost(e) {
             code,
             name: tr.name || code,
             currency: detectCurrency(code, tr.currency),
-            sector: tr.sector || '',
+            sector: resolvedSec,
             avgBuyPrice: 0,
             currentPrice: Number(tr.currentPrice) || Number(tr.price) || 0,
             quantity: 0,
@@ -1789,7 +1840,7 @@ function doPost(e) {
 
         const entry = map[key];
         if (tr.name) entry.name = tr.name;
-        if (tr.sector) entry.sector = tr.sector;
+        if (resolvedSec) entry.sector = resolvedSec;
         if (tr.currency) entry.currency = detectCurrency(code, tr.currency);
         if (code) entry.code = code;
         if (tr.date >= entry.date) entry.date = tr.date;
@@ -1827,7 +1878,7 @@ function doPost(e) {
             code: item.code,
             name: item.name,
             currency: item.currency,
-            sector: item.sector,
+            sector: lookupSectorByStockCode(item.code, item.sector) || '대체',
             price: finalAvgPrice,
             currentPrice: finalCurPrice,
             quantity: Number(item.quantity.toFixed(6)),
@@ -1862,7 +1913,7 @@ function doPost(e) {
             date: normalizeDateKey(item.date || new Date().toISOString().split('T')[0]),
             type: 'BUY',
             currency: detectCurrency(item.code, item.currency),
-            sector: item.sector || '기타',
+            sector: lookupSectorByStockCode(item.code, item.sector) || '대체',
             code: toGoogleFinanceTicker(item.code || ''),
             name: item.name || '',
             price: Number(item.price) || 0,
@@ -1895,7 +1946,7 @@ function doPost(e) {
     }
 
     function applyRemoteState(data) {
-      // [종목코드] 시트의 A열(섹터) · E열(종목코드) · F열(종목명) 목록 동기화 및 브라우저 캐싱
+      // [종목코드] 시트의 B열(섹터) · E열(종목코드) · F열(종목명) 목록 동기화 및 브라우저 캐싱
       if (Array.isArray(data?.stockCodes)) {
         sheetStockCodes = data.stockCodes
           .map((pair) => {
@@ -1920,18 +1971,21 @@ function doPost(e) {
       }
 
       if (Array.isArray(data?.trades)) {
-        trades = data.trades.map((tr) => ({
-          id: String(tr.id),
-          date: normalizeDateKey(tr.date || ''),
-          type: String(tr.type || 'BUY').toUpperCase(),
-          currency: detectCurrency(tr.code, tr.currency),
-          sector: tr.sector || '',
-          code: toGoogleFinanceTicker(tr.code || ''),
-          name: tr.name || '',
-          price: Number(tr.price) || 0,
-          quantity: Number(tr.quantity) || 0,
-          createdAt: Number(tr.createdAt) || 0,
-        }));
+        trades = data.trades.map((tr) => {
+          const code = toGoogleFinanceTicker(tr.code || '');
+          return {
+            id: String(tr.id),
+            date: normalizeDateKey(tr.date || ''),
+            type: String(tr.type || 'BUY').toUpperCase(),
+            currency: detectCurrency(code, tr.currency),
+            sector: lookupSectorByStockCode(code, tr.sector) || '대체',
+            code,
+            name: tr.name || '',
+            price: Number(tr.price) || 0,
+            quantity: Number(tr.quantity) || 0,
+            createdAt: Number(tr.createdAt) || 0,
+          };
+        });
         localStorage.setItem(STORAGE_KEY_TRADES, JSON.stringify(trades));
       }
 
@@ -1955,7 +2009,7 @@ function doPost(e) {
               code,
               name: item.name || code,
               currency,
-              sector: item.sector || '',
+              sector: lookupSectorByStockCode(code, item.sector) || '대체',
               price: avgPrice,
               currentPrice: curPrice,
               quantity: Number(item.quantity) || 0,
@@ -2000,7 +2054,7 @@ function doPost(e) {
         }
 
         if (showAlertOnSuccess) {
-          alert(`✅ 구글 시트 동기화 완료!\n- 거래내역: ${trades.length}건\n- 현재 보유종목: ${portfolio.length}종목\n- 종목코드 시트(A·E·F열): ${sheetStockCodes.length.toLocaleString('ko-KR')}종목 연동됨`);
+          alert(`✅ 구글 시트 동기화 완료!\n- 거래내역: ${trades.length}건\n- 현재 보유종목: ${portfolio.length}종목\n- 종목코드 시트(B·E·F열): ${sheetStockCodes.length.toLocaleString('ko-KR')}종목 연동됨`);
         }
       } catch (err) {
         console.error('구글 시트 동기화 오류:', err);
@@ -2016,7 +2070,7 @@ function doPost(e) {
 
     async function fetchSingleTickerPrice(queryTicker) {
       let resolvedInput = String(queryTicker || '').trim();
-      const strippedCheck = stripInputStockPrefix(resolvedInput);
+      const strippedCheck = formatDisplayStockCode(resolvedInput);
       if (/[가-힣]/.test(strippedCheck) || /\s/.test(strippedCheck)) {
         const localHits = searchLocalStockDictionary(strippedCheck);
         if (localHits.length > 0) {
@@ -2030,7 +2084,7 @@ function doPost(e) {
       }
 
       const ticker = toGoogleFinanceTicker(resolvedInput);
-      const korCodeMatch = ticker.match(/^(?:KRX:|KOSDAQ:)?(\d{5}[0-9A-Z])$/i);
+      const korCodeMatch = ticker.match(/^(?:KRX:|KOSDAQ:)?(\d{4}[0-9A-Z]{2})$/i);
       const korCode = korCodeMatch ? korCodeMatch[1].toUpperCase() : '';
       let num = NaN;
       let resolvedTicker = ticker;
@@ -2056,8 +2110,11 @@ function doPost(e) {
 
       if ((isNaN(num) || num <= 0) && korCode) {
         try {
-          const naverBasic = await fetchJsonWithCorsFallback(`https://m.stock.naver.com/api/stock/${korCode}/basic`);
-          const rawPrice = naverBasic?.closePrice || naverBasic?.nowVal || '';
+          const naverApiUrl = `https://m.stock.naver.com/api/stock/${korCode}/basic`;
+          const naverBasic =
+            (await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(naverApiUrl)}`, 2500)) ||
+            (await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(naverApiUrl)}`, 2500));
+          const rawPrice = naverBasic?.closePrice || naverBasic?.nowPrice || naverBasic?.nowVal || '';
           const parsedNaver = parseFloat(String(rawPrice).replace(/,/g, ''));
           if (!isNaN(parsedNaver) && parsedNaver > 0) {
             num = parsedNaver;
@@ -2263,7 +2320,8 @@ function doPost(e) {
           const cur = detectCurrency(item.code, item.currency);
           const factor = cur === 'USD' ? 1400 : 1;
           const evalAmt = (item.currentPrice ?? item.price) * item.quantity * factor;
-          sectorMap[item.sector] = (sectorMap[item.sector] || 0) + evalAmt;
+          const resolvedSec = lookupSectorByStockCode(item.code, item.sector) || '대체';
+          sectorMap[resolvedSec] = (sectorMap[resolvedSec] || 0) + evalAmt;
           totalWeightBase += evalAmt;
         });
 
@@ -2310,6 +2368,7 @@ function doPost(e) {
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
           const displayCode = formatDisplayStockCode(item.code);
+          const displaySector = lookupSectorByStockCode(item.code, item.sector) || '대체';
 
           return `
             <tr class="hover:bg-slate-800/60 transition">
@@ -2346,7 +2405,7 @@ function doPost(e) {
                 <span class="text-xs ml-1">(${pSign}${profitRate.toFixed(2)}%)</span>
               </td>
               <td class="py-3 px-4 text-center whitespace-nowrap">
-                <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+                <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded font-medium">${escapeHtml(displaySector)}</span>
               </td>
             </tr>
           `;
@@ -2378,6 +2437,7 @@ function doPost(e) {
           const currency = detectCurrency(tr.code, tr.currency);
           const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
           const displayCode = formatDisplayStockCode(tr.code);
+          const displaySector = lookupSectorByStockCode(tr.code, tr.sector) || '대체';
 
           const typeBadge = isSell
             ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-sky-950/90 text-sky-300 border border-sky-700/80">매도</span>'
@@ -2401,7 +2461,7 @@ function doPost(e) {
               <td class="py-2.5 px-4 text-center whitespace-nowrap">${typeBadge}</td>
               <td class="py-2.5 px-4 text-left">
                 <div class="flex items-center justify-start gap-2 flex-wrap">
-                  <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(tr.sector)}</span>
+                  <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(displaySector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(tr.name)}</span>
                   ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(displayCode)})</span>` : ''}
                 </div>
