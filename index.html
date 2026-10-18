@@ -467,15 +467,16 @@ function doPost(e) {
         }
       }
       rebuildPortfolioSheet(tradesSheet, pfSheet);
-    } else if (action === 'deleteTrade') {
-      var delId = String(body.id);
+    } else if (action === 'deleteTrade' || action === 'deleteTrades') {
+      var delIds = Array.isArray(body.ids) ? body.ids.map(String) : [String(body.id)];
+      var delSet = {};
+      for (var d = 0; d &lt; delIds.length; d++) delSet[delIds[d]] = true;
       var tLast = tradesSheet.getLastRow();
       if (tLast &gt; 1) {
         var tVals = tradesSheet.getRange(2, 1, tLast - 1, 1).getValues();
         for (var i = tVals.length - 1; i &gt;= 0; i--) {
-          if (String(tVals[i][0]) === delId) {
+          if (delSet[String(tVals[i][0])]) {
             tradesSheet.deleteRow(i + 2);
-            break;
           }
         }
       }
@@ -838,47 +839,46 @@ function doPost(e) {
       </div>
     </section>
 
-    <!-- 하단 2: 거래내역 테이블 (모든 헤더 중앙정렬, 콤보박스 및 삭제버튼 지원) -->
+    <!-- 하단 2: 거래내역 테이블 (거래일자 앞쪽 선택박스 + 상단 삭제버튼, 관리 열 제거, 섹터/종목명(티커) 왼쪽 정렬) -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <div class="flex items-center gap-2">
             <h2 class="text-base font-bold text-white">🕒 거래내역</h2>
             <span id="tradeCountBadge" class="text-xs px-2.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium">총 0건</span>
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">최신 거래내역이 시간의 역순으로 기록되며, 구분/단가/수량을 수정하거나 콤보박스 및 삭제 버튼으로 관리할 수 있습니다</p>
+          <p class="text-xs text-slate-400 mt-0.5">거래일자 앞쪽의 선택 박스를 체크한 뒤 우측 상단 [삭제] 버튼을 누르면 해당 거래내역이 삭제됩니다</p>
         </div>
 
-        <!-- 거래내역 선택 콤보박스 + 삭제 버튼 -->
-        <div class="flex flex-wrap items-center gap-2 bg-slate-950/70 p-2 rounded-lg border border-slate-800">
-          <select
-            id="tradeDeleteCombo"
-            class="text-xs px-3 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 min-w-[230px]"
-          >
-            <option value="">삭제할 거래내역을 선택하세요</option>
-          </select>
-          <button
-            id="deleteComboTradeBtn"
-            type="button"
-            class="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3.5 py-1.5 rounded transition whitespace-nowrap"
-          >
-            삭제
-          </button>
-        </div>
+        <!-- 선택된 거래내역 삭제 버튼 -->
+        <button
+          id="deleteSelectedTradesBtn"
+          type="button"
+          class="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-4 py-2 rounded-lg transition whitespace-nowrap self-start sm:self-auto shadow-sm"
+        >
+          삭제
+        </button>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-800 text-xs font-semibold text-slate-300 bg-slate-950/60 text-center">
+              <th class="py-3 px-3 text-center w-12">
+                <input
+                  id="selectAllTradesCheck"
+                  type="checkbox"
+                  title="전체 선택/해제"
+                  class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer accent-rose-500"
+                />
+              </th>
               <th class="py-3 px-4 text-center">거래일자</th>
               <th class="py-3 px-4 text-center">구분</th>
-              <th class="py-3 px-4 text-center">섹터/종목 (티커)</th>
+              <th class="py-3 px-4 text-center">섹터/종목명(티커)</th>
               <th class="py-3 px-4 text-center">통화</th>
               <th class="py-3 px-4 text-center">거래단가 (KRW/USD)</th>
               <th class="py-3 px-4 text-center">수량 (주)</th>
               <th class="py-3 px-4 text-center">거래금액 (KRW/USD)</th>
-              <th class="py-3 px-4 text-center">관리</th>
             </tr>
           </thead>
           <tbody id="tradesTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
@@ -1099,8 +1099,8 @@ function doPost(e) {
     const portfolioTableBody = document.getElementById('portfolioTableBody');
     const tradesTableBody = document.getElementById('tradesTableBody');
     const tradeCountBadge = document.getElementById('tradeCountBadge');
-    const tradeDeleteCombo = document.getElementById('tradeDeleteCombo');
-    const deleteComboTradeBtn = document.getElementById('deleteComboTradeBtn');
+    const selectAllTradesCheck = document.getElementById('selectAllTradesCheck');
+    const deleteSelectedTradesBtn = document.getElementById('deleteSelectedTradesBtn');
 
     const chatMessages = document.getElementById('chatMessages');
     const chatForm = document.getElementById('chatForm');
@@ -2096,25 +2096,11 @@ function doPost(e) {
         .join('');
     }
 
-    // 거래내역 테이블 렌더링 (콤보박스 + 삭제 버튼 지원)
+    // 거래내역 테이블 렌더링 (거래일자 앞쪽 선택박스 + 상단 삭제버튼, 관리 열 제거, 섹터/종목명(티커) 왼쪽 정렬)
     function renderTrades() {
       tradeCountBadge.textContent = `총 ${trades.length}건`;
-
-      // 상단 삭제용 콤보박스 옵션 갱신
-      if (trades.length === 0) {
-        tradeDeleteCombo.innerHTML = '<option value="">삭제할 거래내역이 없습니다</option>';
-      } else {
-        tradeDeleteCombo.innerHTML =
-          '<option value="">삭제할 거래내역을 선택하세요</option>' +
-          trades
-            .map((tr) => {
-              const isSell = tr.type === 'SELL' || tr.type === '매도';
-              const typeText = isSell ? '매도' : '매수';
-              const displayCode = formatDisplayStockCode(tr.code);
-              const cur = detectCurrency(tr.code, tr.currency);
-              return `<option value="${escapeHtml(tr.id)}">[${escapeHtml(formatShortDate(tr.date))}] ${typeText} · ${escapeHtml(tr.name)}(${escapeHtml(displayCode)}) · ${formatAmountPlain(tr.price, cur)} ${cur} × ${formatQuantityComma(tr.quantity)}주</option>`;
-            })
-            .join('');
+      if (selectAllTradesCheck) {
+        selectAllTradesCheck.checked = false;
       }
 
       if (trades.length === 0) {
@@ -2135,42 +2121,35 @@ function doPost(e) {
           const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
           const displayCode = formatDisplayStockCode(tr.code);
 
-          const typeSelectClass = isSell
-            ? 'bg-sky-950/90 text-sky-300 border-sky-700/80'
-            : 'bg-rose-950/90 text-rose-300 border-rose-700/80';
+          const typeBadge = isSell
+            ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-sky-950/90 text-sky-300 border border-sky-700/80">매도</span>'
+            : '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-rose-950/90 text-rose-300 border border-rose-700/80">매수</span>';
 
-          const curSelectClass =
+          const curBadgeClass =
             currency === 'USD'
               ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
           return `
             <tr class="hover:bg-slate-800/50 transition">
-              <td class="py-2.5 px-4 text-center text-slate-300 font-mono text-xs whitespace-nowrap">${escapeHtml(formatShortDate(tr.date))}</td>
-              <td class="py-2.5 px-4 text-center whitespace-nowrap">
-                <select
-                  onchange="updateTradeField('${escapeHtml(tr.id)}', 'type', this.value)"
-                  class="text-xs font-bold px-2.5 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${typeSelectClass}"
-                >
-                  <option value="BUY" ${!isSell ? 'selected' : ''}>매수</option>
-                  <option value="SELL" ${isSell ? 'selected' : ''}>매도</option>
-                </select>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  value="${escapeHtml(tr.id)}"
+                  class="trade-row-check w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer accent-rose-500"
+                />
               </td>
-              <td class="py-2.5 px-4 text-center">
-                <div class="inline-flex items-center justify-center gap-2 flex-wrap">
+              <td class="py-2.5 px-4 text-center text-slate-300 font-mono text-xs whitespace-nowrap">${escapeHtml(formatShortDate(tr.date))}</td>
+              <td class="py-2.5 px-4 text-center whitespace-nowrap">${typeBadge}</td>
+              <td class="py-2.5 px-4 text-left">
+                <div class="flex items-center justify-start gap-2 flex-wrap">
                   <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(tr.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(tr.name)}</span>
                   ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(displayCode)})</span>` : ''}
                 </div>
               </td>
               <td class="py-2.5 px-4 text-center whitespace-nowrap">
-                <select
-                  onchange="updateTradeField('${escapeHtml(tr.id)}', 'currency', this.value)"
-                  class="text-xs font-mono font-bold px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${curSelectClass}"
-                >
-                  <option value="KRW" ${currency === 'KRW' ? 'selected' : ''}>KRW</option>
-                  <option value="USD" ${currency === 'USD' ? 'selected' : ''}>USD</option>
-                </select>
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
               </td>
               <td class="py-2.5 px-4 text-center">
                 <input
@@ -2191,30 +2170,40 @@ function doPost(e) {
                 />
               </td>
               <td class="py-2.5 px-4 text-right font-semibold text-white font-mono whitespace-nowrap">${formatAmountPlain(totalAmt, currency)}</td>
-              <td class="py-2.5 px-4 text-center whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick="deleteTradeItem('${escapeHtml(tr.id)}')"
-                  class="text-xs bg-rose-600/90 hover:bg-rose-500 text-white font-semibold px-3 py-1 rounded transition"
-                >
-                  삭제
-                </button>
-              </td>
             </tr>
           `;
         })
         .join('');
     }
 
-    // 상단 콤보박스에서 선택한 거래내역 삭제 버튼
-    deleteComboTradeBtn.addEventListener('click', () => {
-      const selectedId = tradeDeleteCombo.value;
-      if (!selectedId) {
-        alert('먼저 콤보박스에서 삭제할 거래내역을 선택해 주세요.');
-        tradeDeleteCombo.focus();
+    // 전체 선택/해제 체크박스 이벤트
+    selectAllTradesCheck.addEventListener('change', () => {
+      const isChecked = selectAllTradesCheck.checked;
+      document.querySelectorAll('.trade-row-check').forEach((chk) => {
+        chk.checked = isChecked;
+      });
+    });
+
+    // 상단 [선택 삭제] 버튼 클릭 시 체크된 거래내역 일괄 삭제
+    deleteSelectedTradesBtn.addEventListener('click', async () => {
+      const checkedIds = Array.from(document.querySelectorAll('.trade-row-check:checked')).map(
+        (chk) => String(chk.value)
+      );
+      if (checkedIds.length === 0) {
+        alert('먼저 삭제할 거래내역의 거래일자 앞쪽 선택 박스를 체크해 주세요.');
         return;
       }
-      window.deleteTradeItem(selectedId);
+
+      const idSet = new Set(checkedIds);
+      trades = trades.filter((t) => !idSet.has(String(t.id)));
+      rebuildLocalPortfolioFromTrades();
+
+      try {
+        const resData = await postToGoogleSheet({ action: 'deleteTrades', ids: checkedIds });
+        if (resData) applyRemoteState(resData);
+      } catch (err) {
+        console.warn('구글 시트 선택 거래내역 삭제 오류:', err.message);
+      }
     });
 
     // 거래내역 콤보박스(구분/통화) 변경 시 반영
