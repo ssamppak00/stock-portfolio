@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>내 주식 포트폴리오 & Gemini AI 투자 상담 (다크모드)</title>
+  <title>스마트 주식 포트폴리오 & AI 투자 상담</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <!-- 상단 헤더 -->
@@ -13,7 +12,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 실시간 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 구글 시트 클라우드 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -38,212 +37,220 @@
 
   <!-- 메인 대시보드 영역 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Supabase 연결 및 구글 시트 GOOGLEFINANCE 설정 패널 -->
+    <!-- 구글 시트 데이터베이스 & GOOGLEFINANCE() 연동 설정 패널 -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <h2 class="text-base font-bold text-white">☁️ 클라우드 동기화(Supabase) & 구글 시트 <code class="text-emerald-400">GOOGLEFINANCE()</code> 설정</h2>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-base font-bold text-white">☁️ 구글 시트 포트폴리오 저장소 & <code class="text-emerald-400">GOOGLEFINANCE()</code> 연동</h2>
           <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">로컬 모드 (미연결)</span>
         </div>
-        <div class="flex flex-wrap gap-3">
-          <button
-            id="toggleSheetGuideBtn"
-            type="button"
-            class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold underline"
-          >
-            📊 구글 시트 GOOGLEFINANCE() 수식 자동생성 & 연동 방법 보기
-          </button>
-          <button
-            id="toggleSqlGuideBtn"
-            type="button"
-            class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline"
-          >
-            📌 Supabase 테이블 SQL 보기
-          </button>
-        </div>
+        <button
+          id="toggleSheetGuideBtn"
+          type="button"
+          class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold underline self-start md:self-auto"
+        >
+          📊 구글 시트 DB 연동 코드(Apps Script) 복사 & 설정 방법 보기
+        </button>
       </div>
 
-      <!-- 구글 시트 GOOGLEFINANCE 연동 가이드 & 수식 복사 박스 (기본 숨김) -->
+      <!-- 구글 시트 Apps Script 설정 가이드 (기본 숨김) -->
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ 방법 1 (가장 쉬움): 아래 버튼을 눌러 수식 표를 복사한 뒤, 새 구글 시트 A1 칸에 붙여넣고 시트 주소만 연결하세요!
+            ✅ 구글 시트 하나로 포트폴리오 저장 + 기기 간 공유 + GOOGLEFINANCE() 자동 현재가 계산까지 한 번에 해결됩니다!
           </p>
           <button
-            id="copySheetFormulaBtn"
+            id="copyAppsScriptBtn"
             type="button"
             class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded transition whitespace-nowrap self-start sm:self-auto"
           >
-            📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기
+            📋 구글 시트 Apps Script 코드 복사하기
           </button>
         </div>
-        <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300">
-          <p>1. 위 <strong>[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기]</strong>를 누르고 구글 시트(<code>https://sheets.new</code>)의 <strong>A1 셀</strong>에 붙여넣기(<code>Ctrl+V</code>)하면 <code>=GOOGLEFINANCE(...)</code> 수식이 자동으로 계산됩니다.</p>
-          <p>2. 구글 시트 상단 메뉴 <strong>[파일 > 공유 > 웹에 게시]</strong>에서 <strong>전체 문서 + 쉼표로 구분된 값(.csv)</strong>으로 게시하거나, 우측 상단 <strong>[공유 > 링크가 있는 모든 사용자에게 공개]</strong> 후 주소를 복사해 아래 <strong>3단계 입력칸</strong>에 붙여넣고 저장하세요.</p>
-          <p class="text-amber-300">💡 팁: 한국 주식은 <code>KRX:005930</code>(또는 <code>005930</code>), 미국 주식은 <code>NASDAQ:AAPL</code>, <code>NYSE:TSLA</code>, <code>AAPL</code> 형식을 지원합니다.</p>
+        <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300 leading-relaxed">
+          <p>1. 새 구글 시트(<code>https://sheets.new</code>)를 열고 상단 메뉴 <strong>[확장 프로그램 &gt; Apps Script]</strong>를 클릭합니다.</p>
+          <p>2. 기존 코드를 모두 지우고 위 <strong>[📋 구글 시트 Apps Script 코드 복사하기]</strong> 버튼으로 복사한 코드를 붙여넣은 뒤 저장(<code>Ctrl+S</code>)합니다.</p>
+          <p>3. 우측 상단 <strong>[배포 &gt; 새 배포]</strong> 클릭 &rarr; 유형 선택(⚙️): <strong>웹 앱</strong> &rarr; 다음 사용자로 실행: <strong>나</strong> &rarr; 액세스 권한이 있는 사용자: <strong>모든 사용자</strong>로 선택 후 <strong>[배포]</strong>합니다.</p>
+          <p>4. 발급된 <strong>웹 앱 URL (<code>https://script.google.com/macros/s/.../exec</code>)</strong>을 아래 입력칸에 붙여넣고 <strong>[연결 저장]</strong>을 누르면 모든 기기에서 동일한 포트폴리오가 공유됩니다.</p>
         </div>
-        <div>
-          <p class="text-indigo-300 font-semibold mb-1">
-            ✅ 방법 2 (Apps Script 웹앱 방식 - 시트에 종목을 미리 적어두지 않아도 실시간 계산):
-          </p>
-          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800 overflow-x-auto">function doGet(e) {
-  var ticker = (e && e.parameter && e.parameter.ticker) ? e.parameter.ticker.trim() : "";
+        <pre id="appsScriptCodeBlock" class="leading-relaxed select-all bg-slate-950 p-3 rounded border border-slate-800 overflow-x-auto text-[11px] text-slate-300">function getOrInitSheet() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['id', 'date', 'currency', 'sector', 'code', 'name', 'buyPrice', 'currentPrice', 'quantity']);
+  }
+  return sheet;
+}
+
+function toGfTicker(raw) {
+  if (!raw) return '';
+  var code = String(raw).trim().toUpperCase();
+  if (/^\d{1,5}$/.test(code)) code = 'KRX:' + ('000000' + code).slice(-6);
+  else if (/^\d{6}$/.test(code)) code = 'KRX:' + code;
+  else if (/^\d{4}[0-9A-Z]{2}$/.test(code) && code.indexOf(':') === -1) code = 'KRX:' + code;
+  return code;
+}
+
+function doGet(e) {
+  var sheet = getOrInitSheet();
+  var ticker = (e && e.parameter && e.parameter.ticker) ? e.parameter.ticker.trim() : '';
   if (ticker) {
-    if (/^\d{1,5}$/.test(ticker)) ticker = ("000000" + ticker).slice(-6);
-    if (/^\d{6}$/.test(ticker)) ticker = "KRX:" + ticker;
-    var cell = sheet.getRange("Z1");
-    cell.setFormula('=GOOGLEFINANCE("' + ticker + '", "price")');
+    var gfTicker = toGfTicker(ticker);
+    var cell = sheet.getRange('Z1');
+    cell.setFormula('=IFERROR(GOOGLEFINANCE("' + gfTicker + '", "price"), "")');
     SpreadsheetApp.flush();
-    var price = cell.getValue();
-    return ContentService.createTextOutput(JSON.stringify({ ticker: ticker, price: Number(price) }))
+    var val = Number(cell.getValue());
+    cell.clearContent();
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, ticker: gfTicker, price: val }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  var rows = sheet.getDataRange().getValues();
-  return ContentService.createTextOutput(JSON.stringify({ rows: rows }))
+
+  SpreadsheetApp.flush();
+  var values = sheet.getDataRange().getValues();
+  var items = [];
+  for (var i = 1; i &lt; values.length; i++) {
+    var r = values[i];
+    if (!r[0]) continue;
+    var rawDate = r[1];
+    var dateStr = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+      : String(rawDate).slice(0, 10);
+    var buyPrice = Number(r[6]) || 0;
+    var curPrice = Number(r[7]) || buyPrice;
+    items.push({
+      id: String(r[0]),
+      date: dateStr,
+      currency: String(r[2] || 'KRW'),
+      sector: String(r[3] || ''),
+      code: String(r[4] || ''),
+      name: String(r[5] || ''),
+      price: buyPrice,
+      currentPrice: curPrice,
+      quantity: Number(r[8]) || 0
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, items: items }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getOrInitSheet();
+    var body = JSON.parse(e.postData.contents);
+    var action = body.action;
+
+    if (action === 'add') {
+      var it = body.item;
+      var rowNum = sheet.getLastRow() + 1;
+      var gfTicker = toGfTicker(it.code);
+      sheet.appendRow([
+        String(it.id),
+        String(it.date),
+        String(it.currency || 'KRW'),
+        String(it.sector || ''),
+        gfTicker || String(it.code || ''),
+        String(it.name || ''),
+        Number(it.price) || 0,
+        Number(it.currentPrice) || Number(it.price) || 0,
+        Number(it.quantity) || 0
+      ]);
+      if (gfTicker && !it.manualCurrentPrice) {
+        sheet.getRange(rowNum, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + gfTicker + '", "price"), G' + rowNum + ')');
+      }
+      SpreadsheetApp.flush();
+    } else if (action === 'update') {
+      var targetId = String(body.id);
+      var rows = sheet.getDataRange().getValues();
+      for (var i = 1; i &lt; rows.length; i++) {
+        if (String(rows[i][0]) === targetId) {
+          var rIdx = i + 1;
+          if (body.price !== undefined) sheet.getRange(rIdx, 7).setValue(Number(body.price));
+          if (body.currentPrice !== undefined) sheet.getRange(rIdx, 8).setValue(Number(body.currentPrice));
+          if (body.restoreFormula && rows[i][4]) {
+            var tk = toGfTicker(rows[i][4]);
+            sheet.getRange(rIdx, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + tk + '", "price"), G' + rIdx + ')');
+          }
+          if (body.quantity !== undefined) sheet.getRange(rIdx, 9).setValue(Number(body.quantity));
+          break;
+        }
+      }
+      SpreadsheetApp.flush();
+    } else if (action === 'delete') {
+      var delId = String(body.id);
+      var allRows = sheet.getDataRange().getValues();
+      for (var j = allRows.length - 1; j &gt;= 1; j--) {
+        if (String(allRows[j][0]) === delId) {
+          sheet.deleteRow(j + 1);
+          break;
+        }
+      }
+      SpreadsheetApp.flush();
+    } else if (action === 'syncAll' && Array.isArray(body.items)) {
+      var existing = sheet.getDataRange().getValues();
+      var idSet = {};
+      for (var k = 1; k &lt; existing.length; k++) {
+        idSet[String(existing[k][0])] = true;
+      }
+      body.items.forEach(function(item) {
+        if (!idSet[String(item.id)]) {
+          var nextRow = sheet.getLastRow() + 1;
+          var tk = toGfTicker(item.code);
+          sheet.appendRow([
+            String(item.id),
+            String(item.date),
+            String(item.currency || 'KRW'),
+            String(item.sector || ''),
+            tk || String(item.code || ''),
+            String(item.name || ''),
+            Number(item.price) || 0,
+            Number(item.currentPrice) || Number(item.price) || 0,
+            Number(item.quantity) || 0
+          ]);
+          if (tk) {
+            sheet.getRange(nextRow, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + tk + '", "price"), G' + nextRow + ')');
+          }
+        }
+      });
+      SpreadsheetApp.flush();
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
 }</pre>
-        </div>
       </div>
 
-      <!-- SQL 안내 박스 (기본 숨김) -->
-      <div id="sqlGuideBox" class="hidden p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto space-y-3">
-        <div>
-          <p class="text-amber-400 font-semibold mb-1">[기존 테이블에 현재가(current_price) 및 티커(stock_code) 컬럼 추가 시] SQL Editor에서 실행:</p>
-          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800">alter table public.portfolios add column if not exists current_price numeric;
-alter table public.portfolios add column if not exists stock_code text;</pre>
+      <!-- 구글 시트 웹 앱 URL 입력 바 -->
+      <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 flex flex-col md:flex-row md:items-center gap-3">
+        <div class="flex items-center gap-2 whitespace-nowrap">
+          <span class="text-xs font-bold text-emerald-400">🔗 구글 시트 웹 앱 URL:</span>
+          <span id="sheetUrlStatus" class="text-xs text-slate-400">미등록</span>
         </div>
-        <div>
-          <p class="text-emerald-400 font-semibold mb-1">[처음부터 테이블을 새로 만들 때] SQL Editor에서 실행:</p>
-          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800">create table if not exists public.portfolios (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  buy_date date not null,
-  sector text not null,
-  stock_code text,
-  stock_name text not null,
-  buy_price numeric not null,
-  current_price numeric,
-  quantity numeric not null,
-  created_at timestamptz default now()
-);
-
-alter table public.portfolios enable row level security;
-
-create policy "Users can manage own portfolio"
-  on public.portfolios for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-alter publication supabase_realtime add table public.portfolios;</pre>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- 1) Supabase URL / Anon Key 설정 -->
-        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
-          <p class="text-xs font-bold text-slate-300">1단계: Supabase 프로젝트 연결</p>
-          <div class="grid grid-cols-1 gap-2">
-            <input
-              id="supabaseUrlInput"
-              type="url"
-              placeholder="Project URL (https://xxx.supabase.co)"
-              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <input
-              id="supabaseKeyInput"
-              type="password"
-              placeholder="Anon public API Key"
-              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <div class="flex items-center justify-end">
-            <button
-              id="saveSupabaseBtn"
-              type="button"
-              class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-1.5 rounded transition"
-            >
-              연결 정보 저장
-            </button>
-          </div>
-        </div>
-
-        <!-- 2) 사용자 이메일 로그인 / 회원가입 -->
-        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <p class="text-xs font-bold text-slate-300">2단계: 사용자 로그인</p>
-            <span id="userEmailText" class="text-xs text-emerald-400 font-semibold">로그아웃 상태</span>
-          </div>
-          <div id="authFormArea" class="grid grid-cols-1 gap-2">
-            <input
-              id="authEmailInput"
-              type="email"
-              placeholder="이메일 주소"
-              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              id="authPasswordInput"
-              type="password"
-              placeholder="비밀번호 (6자 이상)"
-              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div class="flex items-center justify-end gap-2">
-            <button
-              id="signInBtn"
-              type="button"
-              class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded transition"
-            >
-              로그인
-            </button>
-            <button
-              id="signUpBtn"
-              type="button"
-              class="text-xs bg-slate-700 hover:bg-slate-600 text-white font-semibold px-3 py-1.5 rounded transition"
-            >
-              회원가입
-            </button>
-            <button
-              id="signOutBtn"
-              type="button"
-              class="hidden text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-1.5 rounded transition"
-            >
-              로그아웃
-            </button>
-          </div>
-        </div>
-
-        <!-- 3) 구글 시트 GOOGLEFINANCE() URL 설정 -->
-        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-emerald-900/60 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <p class="text-xs font-bold text-emerald-400">3단계: 구글 시트 <code class="font-mono">GOOGLEFINANCE</code> 연결</p>
-            <span id="sheetUrlStatus" class="text-xs text-slate-400">미등록</span>
-          </div>
-          <p class="text-[11px] text-slate-400 leading-relaxed">
-            <code>=GOOGLEFINANCE()</code>가 입력된 <strong>구글 시트 공유 링크(또는 CSV / Apps Script URL)</strong>를 입력하세요.
-          </p>
-          <input
-            id="googleSheetUrlInput"
-            type="url"
-            placeholder="https://docs.google.com/spreadsheets/d/..."
-            class="w-full text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-          <div class="flex items-center justify-between gap-2">
-            <button
-              id="copyFormulaQuickBtn"
-              type="button"
-              class="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-800/70 px-2.5 py-1.5 rounded transition"
-            >
-              📋 시트용 수식 복사
-            </button>
-            <button
-              id="saveSheetUrlBtn"
-              type="button"
-              class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-1.5 rounded transition"
-            >
-              시트 주소 저장
-            </button>
-          </div>
+        <input
+          id="googleSheetUrlInput"
+          type="url"
+          placeholder="https://script.google.com/macros/s/.../exec (구글 시트 Apps Script 웹 앱 URL)"
+          class="flex-1 text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
+        <div class="flex items-center gap-2">
+          <button
+            id="saveSheetUrlBtn"
+            type="button"
+            class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-2 rounded transition whitespace-nowrap"
+          >
+            연결 저장
+          </button>
+          <button
+            id="uploadLocalToSheetBtn"
+            type="button"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3 py-2 rounded transition whitespace-nowrap"
+            title="현재 브라우저에 있는 포트폴리오를 구글 시트로 내보냅니다"
+          >
+            ⬆️ 기존 데이터 시트로 업로드
+          </button>
         </div>
       </div>
     </section>
@@ -376,7 +383,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                   type="number"
                   min="0.0001"
                   step="any"
-                  placeholder="미입력 시 매수단가"
+                  placeholder="미입력 시 GOOGLEFINANCE 자동계산"
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -394,6 +401,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               </div>
               <div class="sm:col-span-2 pt-2">
                 <button
+                  id="submitStockBtn"
                   type="submit"
                   class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2.5 px-6 rounded-lg transition shadow-sm"
                 >
@@ -470,14 +478,14 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h2 class="text-base font-bold text-white">📋 포트폴리오</h2>
-          <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다</p>
+          <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">매수단가와 현재가를 표에서 직접 수정하면 구글 시트에도 즉시 반영됩니다</p>
         </div>
         <button
           id="googleFinanceFetchBtn"
           type="button"
           class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
         >
-          🔄 현재가 동기화
+          🔄 구글 시트 동기화
         </button>
       </div>
       <div class="overflow-x-auto">
@@ -502,49 +510,30 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
   <script>
     const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
-    const STORAGE_KEY_CURRENT_PRICES = 'my_stock_current_prices_v1';
-    const STORAGE_KEY_STOCK_CODES = 'my_stock_codes_v1';
-    const STORAGE_KEY_CURRENCIES = 'my_stock_currencies_v1';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
-    const STORAGE_KEY_SB_URL = 'my_supabase_url_v1';
-    const STORAGE_KEY_SB_KEY = 'my_supabase_anon_key_v1';
     const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
 
     let portfolio = [];
-    let supabaseClient = null;
-    let currentUser = null;
-    let realtimeChannel = null;
 
     // DOM 참조
     const apiKeyInput = document.getElementById('apiKeyInput');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const apiKeyStatus = document.getElementById('apiKeyStatus');
 
-    const supabaseUrlInput = document.getElementById('supabaseUrlInput');
-    const supabaseKeyInput = document.getElementById('supabaseKeyInput');
-    const saveSupabaseBtn = document.getElementById('saveSupabaseBtn');
     const syncBadge = document.getElementById('syncBadge');
     const storageNoticeText = document.getElementById('storageNoticeText');
-    const toggleSqlGuideBtn = document.getElementById('toggleSqlGuideBtn');
-    const sqlGuideBox = document.getElementById('sqlGuideBox');
     const toggleSheetGuideBtn = document.getElementById('toggleSheetGuideBtn');
     const sheetGuideBox = document.getElementById('sheetGuideBox');
+    const copyAppsScriptBtn = document.getElementById('copyAppsScriptBtn');
+    const appsScriptCodeBlock = document.getElementById('appsScriptCodeBlock');
 
     const googleSheetUrlInput = document.getElementById('googleSheetUrlInput');
     const saveSheetUrlBtn = document.getElementById('saveSheetUrlBtn');
+    const uploadLocalToSheetBtn = document.getElementById('uploadLocalToSheetBtn');
     const sheetUrlStatus = document.getElementById('sheetUrlStatus');
-    const copySheetFormulaBtn = document.getElementById('copySheetFormulaBtn');
-    const copyFormulaQuickBtn = document.getElementById('copyFormulaQuickBtn');
-
-    const authFormArea = document.getElementById('authFormArea');
-    const authEmailInput = document.getElementById('authEmailInput');
-    const authPasswordInput = document.getElementById('authPasswordInput');
-    const signInBtn = document.getElementById('signInBtn');
-    const signUpBtn = document.getElementById('signUpBtn');
-    const signOutBtn = document.getElementById('signOutBtn');
-    const userEmailText = document.getElementById('userEmailText');
 
     const stockForm = document.getElementById('stockForm');
+    const submitStockBtn = document.getElementById('submitStockBtn');
     const buyDateInput = document.getElementById('buyDate');
     const marketCurrencyInput = document.getElementById('marketCurrency');
     const sectorInput = document.getElementById('sector');
@@ -571,12 +560,18 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
     buyDateInput.value = new Date().toISOString().split('T')[0];
 
-    toggleSqlGuideBtn.addEventListener('click', () => {
-      sqlGuideBox.classList.toggle('hidden');
-    });
-
     toggleSheetGuideBtn.addEventListener('click', () => {
       sheetGuideBox.classList.toggle('hidden');
+    });
+
+    copyAppsScriptBtn.addEventListener('click', async () => {
+      const code = appsScriptCodeBlock.textContent;
+      try {
+        await navigator.clipboard.writeText(code);
+        alert('✅ 구글 시트 Apps Script 코드가 복사되었습니다!\n구글 시트 [확장 프로그램 > Apps Script]에 붙여넣고 웹 앱으로 배포해 주세요.');
+      } catch (_err) {
+        alert('코드 블록을 마우스로 선택하여 복사(Ctrl+C)해 주세요.');
+      }
     });
 
     stockCodeInput.addEventListener('input', () => {
@@ -637,218 +632,49 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return code;
     }
 
-    async function copyPortfolioGoogleFinanceTable() {
-      if (portfolio.length === 0) {
-        alert('먼저 포트폴리오에 종목을 1개 이상 추가해 주세요.');
-        return;
-      }
-      const header = ['티커(종목코드)', '종목명', '현재가(GOOGLEFINANCE)'].join('\t');
-      const uniqueMap = new Map();
-      portfolio.forEach((item) => {
-        const key = (item.code || item.name).trim();
-        if (!uniqueMap.has(key)) {
-          const ticker = toGoogleFinanceTicker(item.code || item.name);
-          const formula = `=GOOGLEFINANCE("${ticker}", "price")`;
-          uniqueMap.set(key, `${ticker}\t${item.name}\t${formula}`);
-        }
-      });
-
-      const tsvContent = [header, ...uniqueMap.values()].join('\n');
-      try {
-        await navigator.clipboard.writeText(tsvContent);
-        alert(
-          '✅ 구글 시트용 GOOGLEFINANCE() 수식 표가 복사되었습니다!\n\n새 구글 시트(sheets.new)를 열고 A1 셀에 붙여넣기(Ctrl+V) 하시면 모든 종목의 현재가가 GOOGLEFINANCE() 함수로 자동 계산됩니다.'
-        );
-      } catch (_err) {
-        prompt('아래 내용을 복사(Ctrl+C)하여 구글 시트 A1 셀에 붙여넣으세요:', tsvContent);
-      }
+    function getSheetWebAppUrl() {
+      return (googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '').trim();
     }
 
-    copySheetFormulaBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
-    copyFormulaQuickBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
-
-    function normalizeGoogleSheetCsvUrl(rawUrl) {
-      const trimmed = String(rawUrl).trim();
-      if (
-        trimmed.includes('output=csv') ||
-        trimmed.includes('format=csv') ||
-        trimmed.includes('tqx=out:csv')
-      ) {
-        return trimmed;
-      }
-      const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-      if (match && match[1]) {
-        const sheetId = match[1];
-        const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
-        const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
-        return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv${gidParam}`;
-      }
-      return trimmed;
-    }
-
-    function parseCsvRows(csvText) {
-      return csvText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) =>
-          line
-            .split(',')
-            .map((cell) => cell.replace(/^"|"$/g, '').trim())
-        );
-    }
-
-    async function fetchGoogleFinancePricesFromSheet(singleQueryTicker) {
-      const rawSheetUrl =
-        googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
-
-      if (!rawSheetUrl) {
-        sheetGuideBox.classList.remove('hidden');
-        throw new Error(
-          '먼저 상단 [3단계: 구글 시트 GOOGLEFINANCE 연결] 칸에 구글 시트 주소(또는 Apps Script URL)를 입력하고 저장해 주세요.'
-        );
-      }
-
-      if (rawSheetUrl.includes('script.google.com')) {
-        if (singleQueryTicker) {
-          const ticker = toGoogleFinanceTicker(singleQueryTicker);
-          const sep = rawSheetUrl.includes('?') ? '&' : '?';
-          const res = await fetch(`${rawSheetUrl}${sep}ticker=${encodeURIComponent(ticker)}`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const num = parseFloat(String(data?.price || '').replace(/,/g, ''));
-          if (isNaN(num) || num <= 0) {
-            throw new Error(`GOOGLEFINANCE('${ticker}') 가격을 가져오지 못했습니다.`);
-          }
-          return { singlePrice: num, ticker };
-        }
-      }
-
-      const fetchUrl = normalizeGoogleSheetCsvUrl(rawSheetUrl);
-      const res = await fetch(fetchUrl);
-      if (!res.ok) {
-        throw new Error(
-          `구글 시트 접근 실패 (HTTP ${res.status}). 시트가 [웹에 게시] 또는 [링크가 있는 모든 사용자에게 공개] 상태인지 확인해 주세요.`
-        );
-      }
-
-      const contentType = res.headers.get('content-type') || '';
-      let rows = [];
-      if (contentType.includes('application/json')) {
-        const jsonData = await res.json();
-        rows = jsonData?.rows || [];
+    function updateSheetSyncBadge(isConnected) {
+      if (isConnected) {
+        syncBadge.textContent = '구글 시트 동기화 켜짐 🟢';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
+        sheetUrlStatus.textContent = '연결됨 ✅';
+        sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
+        storageNoticeText.textContent = '구글 시트와 실시간 공유 중 · 매수단가/현재가 수정 시 시트에 자동 반영됩니다';
       } else {
-        const csvText = await res.text();
-        rows = parseCsvRows(csvText);
+        syncBadge.textContent = '로컬 모드 (브라우저 저장)';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
+        sheetUrlStatus.textContent = '미등록';
+        sheetUrlStatus.className = 'text-xs text-slate-400';
+        storageNoticeText.textContent = '상단에 구글 시트 웹 앱 URL을 연결하면 다른 기기와 포트폴리오가 자동 공유됩니다';
       }
-
-      const priceMap = {};
-      rows.forEach((cols) => {
-        if (!cols || cols.length < 2) return;
-        let priceVal = NaN;
-        for (let i = cols.length - 1; i >= 1; i--) {
-          const cleaned = String(cols[i]).replace(/[₩$,원\s]/g, '');
-          const num = parseFloat(cleaned);
-          if (!isNaN(num) && num > 0) {
-            priceVal = num;
-            break;
-          }
-        }
-        if (isNaN(priceVal)) return;
-
-        cols.slice(0, 2).forEach((keyCol) => {
-          const rawKey = String(keyCol || '').trim();
-          if (!rawKey) return;
-          priceMap[rawKey.toUpperCase()] = priceVal;
-          priceMap[toGoogleFinanceTicker(rawKey)] = priceVal;
-          const stripped = rawKey.toUpperCase().replace(/^KRX:|^KOSDAQ:|^KOSPI:|^NASDAQ:|^NYSE:|^AMEX:/, '');
-          priceMap[stripped] = priceVal;
-        });
-      });
-
-      if (singleQueryTicker) {
-        const key1 = String(singleQueryTicker).trim().toUpperCase();
-        const key2 = toGoogleFinanceTicker(key1);
-        const key3 = key2.replace(/^KRX:|^NASDAQ:|^NYSE:|^AMEX:/, '');
-        const found = priceMap[key1] ?? priceMap[key2] ?? priceMap[key3];
-        if (!found) {
-          throw new Error(
-            `구글 시트에서 '${singleQueryTicker}'의 가격을 찾지 못했습니다. 시트에 해당 종목 수식이 있는지 확인해 주세요.`
-          );
-        }
-        return { singlePrice: found, ticker: key2 };
-      }
-
-      return { priceMap };
-    }
-
-    function getLocalPriceMap() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENT_PRICES) || '{}');
-      } catch {
-        return {};
-      }
-    }
-
-    function setLocalPrice(id, price) {
-      const map = getLocalPriceMap();
-      map[id] = Number(price);
-      localStorage.setItem(STORAGE_KEY_CURRENT_PRICES, JSON.stringify(map));
-    }
-
-    function getLocalCodeMap() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY_STOCK_CODES) || '{}');
-      } catch {
-        return {};
-      }
-    }
-
-    function setLocalCode(id, code) {
-      if (!code) return;
-      const map = getLocalCodeMap();
-      map[id] = String(code).trim();
-      localStorage.setItem(STORAGE_KEY_STOCK_CODES, JSON.stringify(map));
-    }
-
-    function getLocalCurrencyMap() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENCIES) || '{}');
-      } catch {
-        return {};
-      }
-    }
-
-    function setLocalCurrency(id, currency) {
-      if (!currency) return;
-      const map = getLocalCurrencyMap();
-      map[id] = currency;
-      localStorage.setItem(STORAGE_KEY_CURRENCIES, JSON.stringify(map));
     }
 
     function loadLocalPortfolio() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
         const list = saved ? JSON.parse(saved) : [];
-        const priceMap = getLocalPriceMap();
-        const codeMap = getLocalCodeMap();
-        const curMap = getLocalCurrencyMap();
         portfolio = list.map((item) => {
-          const code = item.code || codeMap[item.id] || '';
-          const currency = detectCurrency(code, item.currency || curMap[item.id]);
+          const code = item.code || '';
+          const currency = detectCurrency(code, item.currency);
+          const buyPrice = Number(item.price) || 0;
+          const curPrice =
+            item.currentPrice !== undefined && item.currentPrice !== null
+              ? Number(item.currentPrice)
+              : buyPrice;
           return {
             ...item,
+            id: String(item.id),
             code,
             currency,
-            currentPrice:
-              item.currentPrice !== undefined && item.currentPrice !== null
-                ? Number(item.currentPrice)
-                : priceMap[item.id] !== undefined
-                ? Number(priceMap[item.id])
-                : Number(item.price),
+            price: buyPrice,
+            currentPrice: curPrice,
+            quantity: Number(item.quantity) || 0,
           };
         });
-      } catch (err) {
+      } catch (_err) {
         portfolio = [];
       }
       renderPortfolio();
@@ -858,221 +684,144 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
     }
 
-    async function initSupabase() {
-      const url = localStorage.getItem(STORAGE_KEY_SB_URL) || '';
-      const key = localStorage.getItem(STORAGE_KEY_SB_KEY) || '';
-      supabaseUrlInput.value = url;
-      supabaseKeyInput.value = key;
+    // 구글 시트(Apps Script)에 POST 요청 전송 (text/plain 사용으로 CORS 프리플라이트 방지)
+    async function postToGoogleSheet(payload) {
+      const url = getSheetWebAppUrl();
+      if (!url || !url.includes('script.google.com')) return false;
 
-      if (!url || !key || !window.supabase) {
-        updateSyncUI(false);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        throw new Error(`구글 시트 저장 실패 (HTTP ${res.status})`);
+      }
+      return true;
+    }
+
+    // 구글 시트에서 전체 포트폴리오 목록 및 GOOGLEFINANCE() 현재가 불러오기
+    async function loadPortfolioFromGoogleSheet(showAlertOnSuccess = false) {
+      const url = getSheetWebAppUrl();
+      if (!url) {
+        updateSheetSyncBadge(false);
         loadLocalPortfolio();
         return;
       }
+
+      updateSheetSyncBadge(true);
+      const origText = googleFinanceFetchBtn.textContent;
+      googleFinanceFetchBtn.disabled = true;
+      googleFinanceFetchBtn.textContent = '⏳ 시트 동기화 중...';
 
       try {
-        supabaseClient = window.supabase.createClient(url, key);
-        const { data } = await supabaseClient.auth.getSession();
-        handleAuthUser(data?.session?.user || null);
-
-        supabaseClient.auth.onAuthStateChange((_event, session) => {
-          handleAuthUser(session?.user || null);
-        });
-      } catch (err) {
-        console.error('Supabase 초기화 오류:', err);
-        updateSyncUI(false);
-        loadLocalPortfolio();
-      }
-    }
-
-    function updateSyncUI(isCloudActive) {
-      if (isCloudActive && currentUser) {
-        syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
-        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
-        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email})`;
-        userEmailText.textContent = currentUser.email;
-        authFormArea.classList.add('hidden');
-        signInBtn.classList.add('hidden');
-        signUpBtn.classList.add('hidden');
-        signOutBtn.classList.remove('hidden');
-      } else {
-        syncBadge.textContent = '로컬 모드 (브라우저 저장)';
-        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
-        storageNoticeText.textContent = '한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다';
-        userEmailText.textContent = '로그아웃 상태';
-        authFormArea.classList.remove('hidden');
-        signInBtn.classList.remove('hidden');
-        signUpBtn.classList.remove('hidden');
-        signOutBtn.classList.add('hidden');
-      }
-    }
-
-    async function handleAuthUser(user) {
-      currentUser = user;
-      if (currentUser && supabaseClient) {
-        updateSyncUI(true);
-        await fetchCloudPortfolio();
-        subscribeRealtimePortfolio();
-      } else {
-        if (realtimeChannel && supabaseClient) {
-          supabaseClient.removeChannel(realtimeChannel);
-          realtimeChannel = null;
+        const sep = url.includes('?') ? '&' : '?';
+        const res = await fetch(`${url}${sep}_t=${Date.now()}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
         }
-        updateSyncUI(false);
-        loadLocalPortfolio();
-      }
-    }
-
-    async function fetchCloudPortfolio() {
-      if (!supabaseClient || !currentUser) return;
-      const { data, error } = await supabaseClient
-        .from('portfolios')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('클라우드 데이터 조회 실패:', error.message);
-        alert('데이터 조회 실패: ' + error.message);
-        return;
-      }
-
-      const priceMap = getLocalPriceMap();
-      const codeMap = getLocalCodeMap();
-      const curMap = getLocalCurrencyMap();
-      portfolio = (data || []).map((row) => {
-        const buyPrice = Number(row.buy_price);
-        const code = row.stock_code || codeMap[row.id] || '';
-        const currency = detectCurrency(code, curMap[row.id]);
-        const curPrice =
-          row.current_price !== undefined && row.current_price !== null
-            ? Number(row.current_price)
-            : priceMap[row.id] !== undefined
-            ? Number(priceMap[row.id])
-            : buyPrice;
-        return {
-          id: row.id,
-          date: row.buy_date,
-          sector: row.sector,
-          code,
-          currency,
-          name: row.stock_name,
-          price: buyPrice,
-          currentPrice: curPrice,
-          quantity: Number(row.quantity),
-        };
-      });
-      renderPortfolio();
-    }
-
-    function subscribeRealtimePortfolio() {
-      if (!supabaseClient || !currentUser) return;
-      if (realtimeChannel) {
-        supabaseClient.removeChannel(realtimeChannel);
-      }
-
-      realtimeChannel = supabaseClient
-        .channel('portfolio-realtime-' + currentUser.id)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'portfolios',
-            filter: `user_id=eq.${currentUser.id}`,
-          },
-          () => {
-            fetchCloudPortfolio();
+        const data = await res.json();
+        if (Array.isArray(data?.items)) {
+          // 시트가 비어있는데 로컬에 기존 데이터가 있다면 시트로 자동 업로드
+          if (data.items.length === 0 && portfolio.length > 0) {
+            await postToGoogleSheet({ action: 'syncAll', items: portfolio });
+          } else {
+            portfolio = data.items.map((item) => {
+              const code = item.code || '';
+              const currency = detectCurrency(code, item.currency);
+              const buyPrice = Number(item.price) || 0;
+              const curPrice =
+                item.currentPrice !== undefined && item.currentPrice !== null && Number(item.currentPrice) > 0
+                  ? Number(item.currentPrice)
+                  : buyPrice;
+              return {
+                id: String(item.id),
+                date: item.date || '',
+                sector: item.sector || '',
+                code,
+                currency,
+                name: item.name || '',
+                price: buyPrice,
+                currentPrice: curPrice,
+                quantity: Number(item.quantity) || 0,
+              };
+            });
+            saveLocalPortfolio();
           }
-        )
-        .subscribe();
-    }
-
-    saveSupabaseBtn.addEventListener('click', async () => {
-      const url = supabaseUrlInput.value.trim();
-      const key = supabaseKeyInput.value.trim();
-      if (!url || !key) {
-        localStorage.removeItem(STORAGE_KEY_SB_URL);
-        localStorage.removeItem(STORAGE_KEY_SB_KEY);
-        supabaseClient = null;
-        currentUser = null;
-        updateSyncUI(false);
+          renderPortfolio();
+          if (showAlertOnSuccess) {
+            alert(`✅ 구글 시트에서 총 ${portfolio.length}건의 포트폴리오와 현재가를 동기화했습니다!`);
+          }
+        }
+      } catch (err) {
+        console.error('구글 시트 동기화 오류:', err);
         loadLocalPortfolio();
-        alert('Supabase 연결 정보가 초기화되어 로컬 모드로 전환되었습니다.');
-        return;
-      }
-      localStorage.setItem(STORAGE_KEY_SB_URL, url);
-      localStorage.setItem(STORAGE_KEY_SB_KEY, key);
-      await initSupabase();
-      alert('Supabase 연결 정보가 저장되었습니다.');
-    });
-
-    signInBtn.addEventListener('click', async () => {
-      if (!supabaseClient) {
-        alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
-        return;
-      }
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value.trim();
-      if (!email || !password) {
-        alert('이메일과 비밀번호를 입력해 주세요.');
-        return;
-      }
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) {
-        alert('로그인 실패: ' + error.message);
-      } else {
-        authPasswordInput.value = '';
-      }
-    });
-
-    signUpBtn.addEventListener('click', async () => {
-      if (!supabaseClient) {
-        alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
-        return;
-      }
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value.trim();
-      if (!email || password.length < 6) {
-        alert('이메일과 6자 이상의 비밀번호를 입력해 주세요.');
-        return;
-      }
-      const { error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) {
-        alert('회원가입 실패: ' + error.message);
-      } else {
-        alert('회원가입 요청이 완료되었습니다!');
-      }
-    });
-
-    signOutBtn.addEventListener('click', async () => {
-      if (supabaseClient) {
-        await supabaseClient.auth.signOut();
-      }
-    });
-
-    function initSheetUrl() {
-      const savedUrl = localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
-      if (savedUrl) {
-        googleSheetUrlInput.value = savedUrl;
-        sheetUrlStatus.textContent = '연결됨 ✅';
-        sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
+        if (showAlertOnSuccess) {
+          alert('구글 시트 동기화 실패: ' + err.message + '\nApps Script 웹 앱 URL과 배포 권한(모든 사용자)을 확인해 주세요.');
+        }
+      } finally {
+        googleFinanceFetchBtn.disabled = false;
+        googleFinanceFetchBtn.textContent = origText;
       }
     }
 
-    saveSheetUrlBtn.addEventListener('click', () => {
+    // 개별 종목 GOOGLEFINANCE 시세 조회 (입력 폼용)
+    async function fetchSingleTickerPrice(queryTicker) {
+      const url = getSheetWebAppUrl();
+      if (!url) {
+        sheetGuideBox.classList.remove('hidden');
+        throw new Error('먼저 상단에 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
+      }
+      const ticker = toGoogleFinanceTicker(queryTicker);
+      const sep = url.includes('?') ? '&' : '?';
+      const res = await fetch(`${url}${sep}ticker=${encodeURIComponent(ticker)}&_t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const num = parseFloat(String(data?.price || '').replace(/,/g, ''));
+      if (isNaN(num) || num <= 0) {
+        throw new Error(`GOOGLEFINANCE('${ticker}') 가격을 가져오지 못했습니다. 티커를 확인해 주세요.`);
+      }
+      return { singlePrice: num, ticker };
+    }
+
+    saveSheetUrlBtn.addEventListener('click', async () => {
       const url = googleSheetUrlInput.value.trim();
       if (!url) {
         localStorage.removeItem(STORAGE_KEY_SHEET_URL);
-        sheetUrlStatus.textContent = '미등록';
-        sheetUrlStatus.className = 'text-xs text-slate-400';
-        alert('구글 시트 주소가 삭제되었습니다.');
+        updateSheetSyncBadge(false);
+        loadLocalPortfolio();
+        alert('구글 시트 연결이 해제되어 로컬 모드로 전환되었습니다.');
         return;
       }
       localStorage.setItem(STORAGE_KEY_SHEET_URL, url);
-      sheetUrlStatus.textContent = '연결됨 ✅';
-      sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
-      alert('구글 시트 주소가 저장되었습니다!');
+      await loadPortfolioFromGoogleSheet(true);
+    });
+
+    uploadLocalToSheetBtn.addEventListener('click', async () => {
+      const url = getSheetWebAppUrl();
+      if (!url) {
+        sheetGuideBox.classList.remove('hidden');
+        alert('먼저 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
+        return;
+      }
+      if (portfolio.length === 0) {
+        alert('업로드할 포트폴리오 내역이 없습니다.');
+        return;
+      }
+      try {
+        uploadLocalToSheetBtn.disabled = true;
+        uploadLocalToSheetBtn.textContent = '⏳ 업로드 중...';
+        await postToGoogleSheet({ action: 'syncAll', items: portfolio });
+        await loadPortfolioFromGoogleSheet(false);
+        alert('✅ 현재 포트폴리오 데이터가 구글 시트에 저장되었습니다!');
+      } catch (err) {
+        alert('시트 업로드 실패: ' + err.message);
+      } finally {
+        uploadLocalToSheetBtn.disabled = false;
+        uploadLocalToSheetBtn.textContent = '⬆️ 기존 데이터 시트로 업로드';
+      }
     });
 
     function initGeminiKey() {
@@ -1102,7 +851,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     lookupFormPriceBtn.addEventListener('click', async () => {
       const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
       if (!query) {
-        alert('먼저 티커/종목코드(예: 005930, AAPL) 또는 종목명을 입력해 주세요.');
+        alert('먼저 티커/종목코드(예: 005930, AAPL)를 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
@@ -1111,7 +860,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       lookupFormPriceBtn.textContent = '조회중';
 
       try {
-        const result = await fetchGoogleFinancePricesFromSheet(query);
+        const result = await fetchSingleTickerPrice(query);
         stockCodeInput.value = result.ticker;
         marketCurrencyInput.value = detectCurrency(result.ticker);
         currentPriceInput.value = result.singlePrice;
@@ -1197,7 +946,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         portfolioTableBody.innerHTML = `
           <tr>
             <td colspan="8" class="py-8 text-center text-slate-500 text-sm">
-              아직 등록된 포트폴리오 내역이 없습니다. 위 입력창에서 첫 종목을 추가해 보세요!
+              아직 등록된 포트폴리오 내역이 없습니다. 위 매매내역 입력창에서 첫 종목을 추가해 보세요!
             </td>
           </tr>
         `;
@@ -1238,7 +987,16 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               <td class="py-3 px-4 text-center">
                 <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
               </td>
-              <td class="py-3 px-4 text-right text-slate-300 font-mono">${formatAmountPlain(item.price, currency)}</td>
+              <td class="py-3 px-4 text-right">
+                <input
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  value="${item.price}"
+                  onchange="updateBuyPrice('${item.id}', this.value)"
+                  class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </td>
               <td class="py-3 px-4 text-right">
                 <input
                   type="number"
@@ -1273,111 +1031,65 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .join('');
     }
 
-    window.updateCurrentPrice = async function (id, newPriceStr, optionalCode) {
+    // 포트폴리오 표에서 매수단가 직접 수정
+    window.updateBuyPrice = async function (id, newBuyPriceStr) {
+      const newBuyPrice = parseFloat(newBuyPriceStr);
+      if (isNaN(newBuyPrice) || newBuyPrice <= 0) {
+        renderPortfolio();
+        return;
+      }
+
+      portfolio = portfolio.map((item) =>
+        String(item.id) === String(id) ? { ...item, price: newBuyPrice } : item
+      );
+      saveLocalPortfolio();
+      renderPortfolio();
+
+      try {
+        await postToGoogleSheet({
+          action: 'update',
+          id: String(id),
+          price: newBuyPrice,
+        });
+      } catch (err) {
+        console.warn('구글 시트 매수단가 업데이트 오류:', err.message);
+      }
+    };
+
+    // 포트폴리오 표에서 현재가 직접 수정
+    window.updateCurrentPrice = async function (id, newPriceStr) {
       const newPrice = parseFloat(newPriceStr);
       if (isNaN(newPrice) || newPrice <= 0) {
         renderPortfolio();
         return;
       }
 
-      setLocalPrice(id, newPrice);
-      if (optionalCode) {
-        setLocalCode(id, optionalCode);
-      }
-
       portfolio = portfolio.map((item) =>
-        String(item.id) === String(id)
-          ? { ...item, currentPrice: newPrice, code: optionalCode || item.code }
-          : item
+        String(item.id) === String(id) ? { ...item, currentPrice: newPrice } : item
       );
-
-      if (supabaseClient && currentUser) {
-        const updatePayload = { current_price: newPrice };
-        if (optionalCode) updatePayload.stock_code = optionalCode;
-
-        const { error } = await supabaseClient
-          .from('portfolios')
-          .update(updatePayload)
-          .eq('id', id)
-          .eq('user_id', currentUser.id);
-
-        if (error) {
-          console.warn('Supabase 추가 컬럼 미생성 상태(로컬 캐시로 유지됨):', error.message);
-        }
-      } else {
-        saveLocalPortfolio();
-      }
-
+      saveLocalPortfolio();
       renderPortfolio();
+
+      try {
+        await postToGoogleSheet({
+          action: 'update',
+          id: String(id),
+          currentPrice: newPrice,
+        });
+      } catch (err) {
+        console.warn('구글 시트 현재가 업데이트 오류:', err.message);
+      }
     };
 
     googleFinanceFetchBtn.addEventListener('click', async () => {
-      if (portfolio.length === 0) {
-        alert('먼저 포트폴리오에 종목을 추가해 주세요.');
-        return;
-      }
-
-      const rawSheetUrl =
-        googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
-      if (!rawSheetUrl) {
+      const url = getSheetWebAppUrl();
+      if (!url) {
         sheetGuideBox.classList.remove('hidden');
-        alert(
-          '먼저 상단 3단계에 구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)를 입력하고 저장해 주세요.'
-        );
+        alert('먼저 상단에 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
         googleSheetUrlInput.focus();
         return;
       }
-
-      const origText = googleFinanceFetchBtn.textContent;
-      googleFinanceFetchBtn.disabled = true;
-      googleFinanceFetchBtn.textContent = '⏳ 동기화 중...';
-
-      let successCount = 0;
-      const failList = [];
-
-      try {
-        if (rawSheetUrl.includes('script.google.com')) {
-          for (const item of portfolio) {
-            const query = item.code || item.name;
-            try {
-              const res = await fetchGoogleFinancePricesFromSheet(query);
-              await window.updateCurrentPrice(item.id, res.singlePrice, res.ticker);
-              successCount++;
-            } catch (_err) {
-              failList.push(item.name);
-            }
-          }
-        } else {
-          const { priceMap } = await fetchGoogleFinancePricesFromSheet();
-          for (const item of portfolio) {
-            const codeKey = toGoogleFinanceTicker(item.code || '');
-            const strippedKey = codeKey.replace(/^KRX:|^NASDAQ:|^NYSE:|^AMEX:/, '');
-            const nameKey = item.name.trim().toUpperCase();
-            const foundPrice =
-              priceMap[codeKey] ?? priceMap[strippedKey] ?? priceMap[nameKey];
-
-            if (foundPrice !== undefined && !isNaN(foundPrice) && foundPrice > 0) {
-              await window.updateCurrentPrice(item.id, foundPrice, codeKey || item.code);
-              successCount++;
-            } else {
-              failList.push(item.name);
-            }
-          }
-        }
-
-        if (failList.length === 0) {
-          alert(`총 ${successCount}건의 현재가를 성공적으로 동기화했습니다!`);
-        } else {
-          alert(
-            `성공: ${successCount}건 / 미매칭: ${failList.length}건 (${failList.join(', ')})`
-          );
-        }
-      } catch (err) {
-        alert('동기화 오류: ' + err.message);
-      } finally {
-        googleFinanceFetchBtn.disabled = false;
-        googleFinanceFetchBtn.textContent = origText;
-      }
+      await loadPortfolioFromGoogleSheet(true);
     });
 
     stockForm.addEventListener('submit', async (e) => {
@@ -1385,7 +1097,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       const date = buyDateInput.value;
       const currency = marketCurrencyInput.value;
       const sector = sectorInput.value.trim();
-      let code = toGoogleFinanceTicker(stockCodeInput.value.trim());
+      const code = toGoogleFinanceTicker(stockCodeInput.value.trim());
       const name = stockNameInput.value.trim();
       const price = parseFloat(buyPriceInput.value);
       const curPriceRaw = parseFloat(currentPriceInput.value);
@@ -1396,109 +1108,59 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         return;
       }
 
-      let currentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0 ? curPriceRaw : null;
+      const manualCurrentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0;
+      const currentPrice = manualCurrentPrice ? curPriceRaw : price;
+      const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
 
-      if (!currentPrice && (googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL))) {
-        try {
-          const res = await fetchGoogleFinancePricesFromSheet(code || name);
-          currentPrice = res.singlePrice;
-        } catch (_err) {
-          currentPrice = price;
-        }
-      }
-      if (!currentPrice) {
-        currentPrice = price;
-      }
+      const newItem = {
+        id: newId,
+        date,
+        sector,
+        code,
+        currency,
+        name,
+        price,
+        currentPrice,
+        quantity,
+        manualCurrentPrice,
+      };
 
-      if (supabaseClient && currentUser) {
-        let { data, error } = await supabaseClient
-          .from('portfolios')
-          .insert([
-            {
-              user_id: currentUser.id,
-              buy_date: date,
-              sector: sector,
-              stock_code: code || null,
-              stock_name: name,
-              buy_price: price,
-              current_price: currentPrice,
-              quantity: quantity,
-            },
-          ])
-          .select();
+      submitStockBtn.disabled = true;
+      submitStockBtn.textContent = '저장 중...';
 
-        if (error && error.message && (error.message.includes('current_price') || error.message.includes('stock_code'))) {
-          const retry = await supabaseClient
-            .from('portfolios')
-            .insert([
-              {
-                user_id: currentUser.id,
-                buy_date: date,
-                sector: sector,
-                stock_name: name,
-                buy_price: price,
-                quantity: quantity,
-              },
-            ])
-            .select();
-          data = retry.data;
-          error = retry.error;
-        }
-
-        if (error) {
-          alert('클라우드 저장 실패: ' + error.message);
-          return;
-        }
-        if (data && data[0]) {
-          setLocalPrice(data[0].id, currentPrice);
-          setLocalCurrency(data[0].id, currency);
-          if (code) setLocalCode(data[0].id, code);
-        }
-        await fetchCloudPortfolio();
-      } else {
-        const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
-        setLocalPrice(newId, currentPrice);
-        setLocalCurrency(newId, currency);
-        if (code) setLocalCode(newId, code);
-        portfolio.unshift({
-          id: newId,
-          date,
-          sector,
-          code,
-          currency,
-          name,
-          price,
-          currentPrice,
-          quantity,
-        });
+      try {
+        portfolio.unshift(newItem);
         saveLocalPortfolio();
         renderPortfolio();
-      }
 
-      stockCodeInput.value = '';
-      stockNameInput.value = '';
-      buyPriceInput.value = '';
-      currentPriceInput.value = '';
-      quantityInput.value = '';
-      stockNameInput.focus();
+        if (getSheetWebAppUrl()) {
+          await postToGoogleSheet({ action: 'add', item: newItem });
+          await loadPortfolioFromGoogleSheet(false);
+        }
+
+        stockCodeInput.value = '';
+        stockNameInput.value = '';
+        buyPriceInput.value = '';
+        currentPriceInput.value = '';
+        quantityInput.value = '';
+        stockNameInput.focus();
+      } catch (err) {
+        alert('구글 시트 저장 중 오류가 발생했습니다 (브라우저에는 저장됨): ' + err.message);
+      } finally {
+        submitStockBtn.disabled = false;
+        submitStockBtn.textContent = '포트폴리오에 추가';
+      }
     });
 
     window.deleteStockItem = async function (id) {
-      if (supabaseClient && currentUser) {
-        const { error } = await supabaseClient
-          .from('portfolios')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', currentUser.id);
-        if (error) {
-          alert('삭제 실패: ' + error.message);
-          return;
-        }
-        await fetchCloudPortfolio();
-      } else {
-        portfolio = portfolio.filter((item) => item.id !== id);
-        saveLocalPortfolio();
-        renderPortfolio();
+      portfolio = portfolio.filter((item) => String(item.id) !== String(id));
+      saveLocalPortfolio();
+      renderPortfolio();
+
+      try {
+        await postToGoogleSheet({ action: 'delete', id: String(id) });
+      } catch (err) {
+        console.warn('구글 시트 삭제 동기화 오류:', err.message);
       }
     };
 
@@ -1608,9 +1270,16 @@ ${userQuestion}`;
       });
     });
 
+    // 초기 실행
     initGeminiKey();
-    initSheetUrl();
-    initSupabase();
+    loadLocalPortfolio();
+    const savedSheetUrl = localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
+    if (savedSheetUrl) {
+      googleSheetUrlInput.value = savedSheetUrl;
+      loadPortfolioFromGoogleSheet(false);
+    } else {
+      updateSheetSyncBadge(false);
+    }
   </script>
 </body>
 </html>
