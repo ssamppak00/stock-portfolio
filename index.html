@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 주식 포트폴리오 & Gemini AI 투자 상담</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <!-- 상단 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
+        <p class="text-xs text-slate-500 mt-0.5">내 컴퓨터(브라우저)에만 안전하게 저장되는 나만의 자산 관리 대시보드</p>
+      </div>
+      <!-- Gemini API Key 설정 영역 -->
+      <div class="flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
+        <label for="apiKeyInput" class="text-xs font-semibold text-slate-600 whitespace-nowrap">🔑 Gemini API 키:</label>
+        <input
+          id="apiKeyInput"
+          type="password"
+          placeholder="API 키를 입력하세요"
+          class="text-xs px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-56 bg-white"
+        />
+        <button
+          id="saveApiKeyBtn"
+          type="button"
+          class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-3 py-1.5 rounded transition"
+        >
+          저장
+        </button>
+        <span id="apiKeyStatus" class="text-xs text-slate-500 whitespace-nowrap">미등록</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 대시보드 영역 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- 상단 요약 카드 3종 -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">총 투자 금액</p>
+        <p id="totalInvestmentText" class="text-2xl font-bold text-slate-900 mt-1">0원</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">보유 종목 수 (매수 건수)</p>
+        <p id="totalCountText" class="text-2xl font-bold text-indigo-600 mt-1">0종목 (0건)</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">섹터별 비중 요약</p>
+        <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-600">
+          <span class="text-slate-400">등록된 내역이 없습니다.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 좌측(입력 폼 + 테이블) & 우측(AI 상담 챗봇) 레이아웃 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- 좌측 영역: 7칸 -->
+      <div class="lg:col-span-7 space-y-6">
+        <!-- 1. 주식 매수 내역 입력 폼 -->
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-bold text-slate-900 mb-4">➕ 주식 매수 내역 추가</h2>
+          <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label for="buyDate" class="block text-xs font-medium text-slate-600 mb-1">매수일자</label>
+              <input
+                id="buyDate"
+                type="date"
+                required
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label for="sector" class="block text-xs font-medium text-slate-600 mb-1">분야 / 섹터</label>
+              <input
+                id="sector"
+                type="text"
+                list="sectorList"
+                placeholder="예: 반도체, 기술, 배당"
+                required
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <datalist id="sectorList">
+                <option value="반도체"></option>
+                <option value="기술/IT"></option>
+                <option value="배당/금융"></option>
+                <option value="2차전지"></option>
+                <option value="헬스케어"></option>
+                <option value="ETF/지수"></option>
+              </datalist>
+            </div>
+            <div>
+              <label for="stockName" class="block text-xs font-medium text-slate-600 mb-1">종목명</label>
+              <input
+                id="stockName"
+                type="text"
+                placeholder="예: 삼성전자"
+                required
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label for="buyPrice" class="block text-xs font-medium text-slate-600 mb-1">매수단가 (원)</label>
+              <input
+                id="buyPrice"
+                type="number"
+                min="1"
+                step="any"
+                placeholder="예: 70000"
+                required
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">매수수량 (주)</label>
+              <input
+                id="quantity"
+                type="number"
+                min="1"
+                step="any"
+                placeholder="예: 10"
+                required
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div class="flex items-end">
+              <button
+                type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2 px-4 rounded-lg transition shadow-sm"
+              >
+                포트폴리오에 추가
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- 2. 포트폴리오 현황 테이블 -->
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-slate-900">📋 포트폴리오 매수 내역</h2>
+            <span class="text-xs text-slate-400">브라우저에 자동 저장됩니다</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 bg-slate-50">
+                  <th class="py-2.5 px-3">섹터</th>
+                  <th class="py-2.5 px-3">종목명</th>
+                  <th class="py-2.5 px-3">매수일</th>
+                  <th class="py-2.5 px-3 text-right">매수가</th>
+                  <th class="py-2.5 px-3 text-right">수량</th>
+                  <th class="py-2.5 px-3 text-right">총 매수금액(비중)</th>
+                  <th class="py-2.5 px-3 text-center">관리</th>
+                </tr>
+              </thead>
+              <tbody id="portfolioTableBody" class="divide-y divide-slate-100 text-sm">
+                <!-- 자바스크립트로 렌더링 -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- 우측 영역: Gemini AI 투자 상담 챗봇 (5칸) -->
+      <div class="lg:col-span-5">
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[620px]">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">🤖 Gemini AI 포트폴리오 상담소</h2>
+              <p class="text-xs text-slate-500">모델: <code class="text-indigo-600 font-semibold">gemini-2.5-flash</code> · 내 포트폴리오 자동 연동</p>
+            </div>
+          </div>
+
+          <!-- 추천 질문 버튼 -->
+          <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              data-prompt="내 포트폴리오 섹터 분산 상태를 점검하고 조언해줘."
+              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+            >
+              💡 내 포트폴리오 섹터 분산 조언해줘
+            </button>
+            <button
+              type="button"
+              data-prompt="현재 보유 종목들의 투자 비중을 점검하고 리밸런싱 의견을 알려줘."
+              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+            >
+              ⚖️ 현재 비중 점검해줘
+            </button>
+            <button
+              type="button"
+              data-prompt="내 포트폴리오에서 주의해야 할 리스크 요인이 무엇인지 쉽게 설명해줘."
+              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+            >
+              🛡️ 리스크 요인 점검해줘
+            </button>
+          </div>
+
+          <!-- 대화 메시지 영역 -->
+          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-sm">
+            <div class="bg-white border border-slate-200 rounded-xl p-3.5 text-slate-700 shadow-sm">
+              안녕하세요! 왼쪽에서 매수한 주식을 등록하고 상단에 <strong>Gemini API 키</strong>를 저장한 뒤 질문해 보세요. 등록된 포트폴리오 비중을 자동으로 분석해 맞춤형 피드백을 드립니다.
+            </div>
+          </div>
+
+          <!-- 질문 입력창 -->
+          <form id="chatForm" class="p-3 border-t border-slate-200 bg-white flex gap-2">
+            <input
+              id="chatInput"
+              type="text"
+              placeholder="포트폴리오에 대해 궁금한 점을 물어보세요..."
+              required
+              class="flex-1 text-sm px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              id="chatSubmitBtn"
+              type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+            >
+              전송
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // localStorage 키 상수 정의
+    const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
+    const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
+
+    // 상태 데이터
+    let portfolio = [];
+
+    // DOM 요소 참조
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+    const stockForm = document.getElementById('stockForm');
+    const buyDateInput = document.getElementById('buyDate');
+    const sectorInput = document.getElementById('sector');
+    const stockNameInput = document.getElementById('stockName');
+    const buyPriceInput = document.getElementById('buyPrice');
+    const quantityInput = document.getElementById('quantity');
+
+    const totalInvestmentText = document.getElementById('totalInvestmentText');
+    const totalCountText = document.getElementById('totalCountText');
+    const sectorSummaryBox = document.getElementById('sectorSummaryBox');
+    const portfolioTableBody = document.getElementById('portfolioTableBody');
+
+    const chatMessages = document.getElementById('chatMessages');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatSubmitBtn = document.getElementById('chatSubmitBtn');
+    const quickPromptBtns = document.querySelectorAll('.quick-prompt-btn');
+
+    // 오늘 날짜 기본 세팅
+    buyDateInput.value = new Date().toISOString().split('T')[0];
+
+    // 숫자 포맷 도우미 (원화 표시)
+    function formatKRW(number) {
+      return Math.round(number).toLocaleString('ko-KR') + '원';
+    }
+
+    // XSS 방지용 텍스트 이스케이프
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // 1. 초기 데이터 불러오기
+    function loadFromStorage() {
+      try {
+        const savedPortfolio = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+        if (savedPortfolio) {
+          portfolio = JSON.parse(savedPortfolio);
+        }
+      } catch (err) {
+        console.error('포트폴리오 데이터 로드 실패:', err);
+        portfolio = [];
+      }
+
+      const savedKey = localStorage.getItem(STORAGE_KEY_API_KEY) || '';
+      if (savedKey) {
+        apiKeyInput.value = savedKey;
+        apiKeyStatus.textContent = '저장됨 ✅';
+        apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
+      }
+      renderPortfolio();
+    }
+
+    // 2. 포트폴리오 저장
+    function savePortfolio() {
+      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+    }
+
+    // 3. API 키 저장
+    saveApiKeyBtn.addEventListener('click', () => {
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        localStorage.removeItem(STORAGE_KEY_API_KEY);
+        apiKeyStatus.textContent = '미등록';
+        apiKeyStatus.className = 'text-xs text-slate-500 whitespace-nowrap';
+        alert('API 키가 삭제되었습니다.');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY_API_KEY, key);
+      apiKeyStatus.textContent = '저장됨 ✅';
+      apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
+      alert('Gemini API 키가 브라우저에 안전하게 저장되었습니다.');
+    });
+
+    // 4. 포트폴리오 화면 렌더링 (요약 카드 + 테이블)
+    function renderPortfolio() {
+      const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
+
+      // 상단 요약 업데이트
+      totalInvestmentText.textContent = formatKRW(totalAmount);
+      totalCountText.textContent = `${uniqueStocks}종목 (${portfolio.length}건)`;
+
+      // 섹터별 비중 계산
+      if (portfolio.length === 0 || totalAmount === 0) {
+        sectorSummaryBox.innerHTML = '<span class="text-slate-400">등록된 내역이 없습니다.</span>';
+      } else {
+        const sectorMap = {};
+        portfolio.forEach((item) => {
+          const amt = item.price * item.quantity;
+          sectorMap[item.sector] = (sectorMap[item.sector] || 0) + amt;
+        });
+
+        const sortedSectors = Object.entries(sectorMap).sort((a, b) => b[1] - a[1]);
+        sectorSummaryBox.innerHTML = sortedSectors
+          .map(([sec, amt]) => {
+            const ratio = ((amt / totalAmount) * 100).toFixed(1);
+            return `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md font-medium">${escapeHtml(sec)} ${ratio}%</span>`;
+          })
+          .join('');
+      }
+
+      // 테이블 업데이트
+      if (portfolio.length === 0) {
+        portfolioTableBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-8 text-center text-slate-400 text-sm">
+              아직 등록된 주식 매수 내역이 없습니다. 위 입력창에서 첫 종목을 추가해 보세요!
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      portfolioTableBody.innerHTML = portfolio
+        .map((item) => {
+          const itemTotal = item.price * item.quantity;
+          const weight = totalAmount > 0 ? ((itemTotal / totalAmount) * 100).toFixed(1) : '0.0';
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="py-3 px-3">
+                <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+              </td>
+              <td class="py-3 px-3 font-semibold text-slate-900">${escapeHtml(item.name)}</td>
+              <td class="py-3 px-3 text-xs text-slate-500">${escapeHtml(item.date)}</td>
+              <td class="py-3 px-3 text-right">${Number(item.price).toLocaleString('ko-KR')}원</td>
+              <td class="py-3 px-3 text-right">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
+              <td class="py-3 px-3 text-right font-semibold text-slate-900">
+                ${formatKRW(itemTotal)}
+                <span class="text-xs text-indigo-600 font-normal">(${weight}%)</span>
+              </td>
+              <td class="py-3 px-3 text-center">
+                <button
+                  type="button"
+                  onclick="deleteStockItem('${item.id}')"
+                  class="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded transition"
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    // 5. 주식 매수 내역 추가
+    stockForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newItem = {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+        date: buyDateInput.value,
+        sector: sectorInput.value.trim(),
+        name: stockNameInput.value.trim(),
+        price: parseFloat(buyPriceInput.value),
+        quantity: parseFloat(quantityInput.value),
+      };
+
+      if (!newItem.sector || !newItem.name || isNaN(newItem.price) || isNaN(newItem.quantity)) {
+        alert('모든 입력 항목을 올바르게 입력해 주세요.');
+        return;
+      }
+
+      portfolio.unshift(newItem);
+      savePortfolio();
+      renderPortfolio();
+
+      // 종목명, 단가, 수량 초기화
+      stockNameInput.value = '';
+      buyPriceInput.value = '';
+      quantityInput.value = '';
+      stockNameInput.focus();
+    });
+
+    // 6. 항목 삭제 (전역 함수로 연결)
+    window.deleteStockItem = function (id) {
+      portfolio = portfolio.filter((item) => item.id !== id);
+      savePortfolio();
+      renderPortfolio();
+    };
+
+    // 7. AI 상담용 포트폴리오 요약 텍스트 생성
+    function buildPortfolioContextText() {
+      if (portfolio.length === 0) {
+        return '현재 등록된 주식 포트폴리오 내역이 없습니다.';
+      }
+      const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const lines = portfolio.map((item, idx) => {
+        const subTotal = item.price * item.quantity;
+        const ratio = ((subTotal / totalAmount) * 100).toFixed(1);
+        return `${idx + 1}. [${item.sector}] ${item.name} - 매수일: ${item.date}, 매수단가: ${item.price.toLocaleString()}원, 수량: ${item.quantity}주, 매수금액: ${subTotal.toLocaleString()}원 (비중 ${ratio}%)`;
+      });
+
+      return `총 투자금액: ${totalAmount.toLocaleString()}원\n보유 내역:\n${lines.join('\n')}`;
+    }
+
+    // 8. 채팅 메시지 추가 도우미
+    function appendMessage(role, text) {
+      const wrapper = document.createElement('div');
+      if (role === 'user') {
+        wrapper.className = 'bg-indigo-600 text-white rounded-xl p-3.5 ml-8 shadow-sm whitespace-pre-wrap';
+      } else {
+        wrapper.className = 'bg-white border border-slate-200 text-slate-800 rounded-xl p-3.5 mr-4 shadow-sm whitespace-pre-wrap leading-relaxed';
+      }
+      wrapper.textContent = text;
+      chatMessages.appendChild(wrapper);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return wrapper;
+    }
+
+    // 9. Gemini REST API 호출 (gemini-2.5-flash)
+    async function askGemini(userQuestion) {
+      const apiKey = apiKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY_API_KEY);
+      if (!apiKey) {
+        alert('먼저 화면 우측 상단에 Gemini API 키를 입력하고 [저장] 버튼을 눌러주세요.');
+        apiKeyInput.focus();
+        return;
+      }
+
+      appendMessage('user', userQuestion);
+      const loadingBubble = appendMessage('ai', '포트폴리오를 분석하여 답변을 작성하고 있습니다...');
+      chatSubmitBtn.disabled = true;
+
+      const portfolioContext = buildPortfolioContextText();
+      const systemPrompt = `당신은 친절하고 전문적인 개인 주식 포트폴리오 투자 상담 AI입니다.
+아래 사용자의 현재 포트폴리오 현황을 참고하여 질문에 알기 쉽게 한국어로 답변해 주세요.
+초보 투자자도 이해하기 쉬운 용어를 사용하고, 핵심 내용을 항목별로 깔끔하게 정리해 주세요.
+
+[사용자 포트폴리오 데이터]
+${portfolioContext}
+
+[사용자 질문]
+${userQuestion}`;
+
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: systemPrompt }],
+              },
+            ],
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          const errMsg = data?.error?.message || `HTTP 오류 (${response.status})`;
+          throw new Error(errMsg);
+        }
+
+        const reply =
+          data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+          '답변을 불러오지 못했습니다. 다시 시도해 주세요.';
+        loadingBubble.textContent = reply;
+      } catch (error) {
+        console.error('Gemini API 호출 오류:', error);
+        loadingBubble.textContent = `❌ 오류가 발생했습니다: ${error.message}\nAPI 키가 정확한지 확인해 주세요.`;
+        loadingBubble.classList.add('text-rose-600');
+      } finally {
+        chatSubmitBtn.disabled = false;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+
+    // 채팅 폼 전송 이벤트
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const question = chatInput.value.trim();
+      if (!question) return;
+      chatInput.value = '';
+      askGemini(question);
+    });
+
+    // 추천 질문 버튼 클릭 이벤트
+    quickPromptBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const promptText = btn.getAttribute('data-prompt');
+        if (promptText) {
+          askGemini(promptText);
+        }
+      });
+    });
+
+    // 앱 시작
+    loadFromStorage();
+  </script>
+</body>
+</html>
