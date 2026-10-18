@@ -279,171 +279,138 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       </div>
     </section>
 
-    <!-- 좌측(입력 폼 + 테이블) & 우측(AI 상담 챗봇) 레이아웃 -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- 좌측 영역: 7칸 -->
-      <div class="lg:col-span-7 space-y-6">
-        <!-- 1. 주식 매수 내역 입력 폼 -->
-        <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
-            <h2 class="text-base font-bold text-white">➕ 주식 매수 내역 추가</h2>
-            <span class="text-xs text-emerald-400">💡 한국주식(<code class="font-mono">005930</code>)은 <strong>KRW</strong>, 미국주식(<code class="font-mono">AAPL</code>, <code class="font-mono">NASDAQ:NVDA</code>)은 <strong>USD</strong>로 자동 구분됩니다</span>
-          </div>
-          <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
-              <input
-                id="buyDate"
-                type="date"
-                required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+    <!-- 중단 영역: 좌측(매매내역) & 우측(AI 조언(포트폴리오)) 동일 높이 배치 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-6">
+      <!-- 좌측: 매매내역 (6칸, h-full로 우측과 하단 라인 동일하게 맞춤) -->
+      <div class="lg:col-span-6 flex">
+        <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg flex flex-col justify-between w-full h-full">
+          <div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
+              <h2 class="text-base font-bold text-white">➕ 매매내역</h2>
+              <span class="text-xs text-emerald-400">💡 한국주식(<code class="font-mono">005930</code>)은 <strong>KRW</strong>, 미국주식(<code class="font-mono">AAPL</code>)은 <strong>USD</strong> 자동 구분</span>
             </div>
-            <div>
-              <label for="marketCurrency" class="block text-xs font-medium text-slate-400 mb-1">시장 / 통화</label>
-              <select
-                id="marketCurrency"
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="KRW">한국주식 (KRW)</option>
-                <option value="USD">미국주식 (USD)</option>
-              </select>
-            </div>
-            <div>
-              <label for="sector" class="block text-xs font-medium text-slate-400 mb-1">분야 / 섹터</label>
-              <input
-                id="sector"
-                type="text"
-                list="sectorList"
-                placeholder="예: 반도체, 기술, 배당"
-                required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <datalist id="sectorList">
-                <option value="반도체"></option>
-                <option value="기술/IT"></option>
-                <option value="배당/금융"></option>
-                <option value="2차전지"></option>
-                <option value="헬스케어"></option>
-                <option value="ETF/지수"></option>
-              </datalist>
-            </div>
-            <div>
-              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">티커 / 종목코드</label>
-              <div class="flex gap-1.5">
+            <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
                 <input
-                  id="stockCode"
-                  type="text"
-                  placeholder="005930, AAPL"
-                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  id="buyDate"
+                  type="date"
+                  required
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                <button
-                  id="lookupFormPriceBtn"
-                  type="button"
-                  class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-2.5 py-2 rounded-lg whitespace-nowrap transition"
-                  title="연결된 구글 시트 GOOGLEFINANCE()에서 현재가를 가져옵니다"
+              </div>
+              <div>
+                <label for="marketCurrency" class="block text-xs font-medium text-slate-400 mb-1">시장 / 통화</label>
+                <select
+                  id="marketCurrency"
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  시세조회
+                  <option value="KRW">한국주식 (KRW)</option>
+                  <option value="USD">미국주식 (USD)</option>
+                </select>
+              </div>
+              <div>
+                <label for="sector" class="block text-xs font-medium text-slate-400 mb-1">분야 / 섹터</label>
+                <input
+                  id="sector"
+                  type="text"
+                  list="sectorList"
+                  placeholder="예: 반도체, 기술, 배당"
+                  required
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <datalist id="sectorList">
+                  <option value="반도체"></option>
+                  <option value="기술/IT"></option>
+                  <option value="배당/금융"></option>
+                  <option value="2차전지"></option>
+                  <option value="헬스케어"></option>
+                  <option value="ETF/지수"></option>
+                </datalist>
+              </div>
+              <div>
+                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">티커 / 종목코드</label>
+                <div class="flex gap-1.5">
+                  <input
+                    id="stockCode"
+                    type="text"
+                    placeholder="005930, AAPL"
+                    class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    id="lookupFormPriceBtn"
+                    type="button"
+                    class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-3 py-2 rounded-lg whitespace-nowrap transition"
+                    title="연결된 구글 시트 GOOGLEFINANCE()에서 현재가를 가져옵니다"
+                  >
+                    시세조회
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명</label>
+                <input
+                  id="stockName"
+                  type="text"
+                  placeholder="예: 삼성전자, Apple"
+                  required
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
+                <input
+                  id="buyPrice"
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  placeholder="예: 70000 또는 185.5"
+                  required
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label for="currentPrice" class="block text-xs font-medium text-slate-400 mb-1">현재가 (KRW/USD)</label>
+                <input
+                  id="currentPrice"
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  placeholder="미입력 시 매수단가"
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량</label>
+                <input
+                  id="quantity"
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  placeholder="예: 10"
+                  required
+                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div class="sm:col-span-2 pt-2">
+                <button
+                  type="submit"
+                  class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2.5 px-6 rounded-lg transition shadow-sm"
+                >
+                  포트폴리오에 추가
                 </button>
               </div>
-            </div>
-            <div>
-              <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명</label>
-              <input
-                id="stockName"
-                type="text"
-                placeholder="예: 삼성전자, Apple"
-                required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
-              <input
-                id="buyPrice"
-                type="number"
-                min="0.0001"
-                step="any"
-                placeholder="예: 70000 또는 185.5"
-                required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label for="currentPrice" class="block text-xs font-medium text-slate-400 mb-1">현재가 (KRW/USD)</label>
-              <input
-                id="currentPrice"
-                type="number"
-                min="0.0001"
-                step="any"
-                placeholder="미입력 시 매수단가"
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량</label>
-              <input
-                id="quantity"
-                type="number"
-                min="0.0001"
-                step="any"
-                placeholder="예: 10"
-                required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div class="sm:col-span-2 lg:col-span-4 flex items-end justify-end mt-1">
-              <button
-                type="submit"
-                class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-6 rounded-lg transition shadow-sm"
-              >
-                포트폴리오에 추가
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <!-- 2. 포트폴리오 테이블 -->
-        <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <div>
-              <h2 class="text-base font-bold text-white">📋 포트폴리오</h2>
-              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다</p>
-            </div>
-            <button
-              id="googleFinanceFetchBtn"
-              type="button"
-              class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
-            >
-              🔄 현재가 동기화
-            </button>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-                  <th class="py-2.5 px-2.5">섹터/종목</th>
-                  <th class="py-2.5 px-2.5 text-center">통화</th>
-                  <th class="py-2.5 px-2.5 text-right">매수단가 (KRW/USD)</th>
-                  <th class="py-2.5 px-2.5 text-right">현재가 (KRW/USD)</th>
-                  <th class="py-2.5 px-2.5 text-right">수량 (주)</th>
-                  <th class="py-2.5 px-2.5 text-right">평가금액 (KRW/USD)</th>
-                  <th class="py-2.5 px-2.5 text-right">평가손익 (KRW/USD)</th>
-                  <th class="py-2.5 px-2.5 text-center">관리</th>
-                </tr>
-              </thead>
-              <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
-            </table>
+            </form>
           </div>
         </section>
       </div>
 
-      <!-- 우측 영역: Gemini AI 투자 상담 챗봇 (5칸) -->
-      <div class="lg:col-span-5">
-        <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col h-[650px]">
+      <!-- 우측: AI 조언(포트폴리오) (6칸, 좌측 매매내역과 동일한 높이로 하단 정렬) -->
+      <div class="lg:col-span-6 flex">
+        <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col w-full h-[420px] lg:h-full">
           <div class="p-4 border-b border-slate-800 flex items-center justify-between">
             <div>
-              <h2 class="text-base font-bold text-white">🤖 Gemini AI 포트폴리오 상담소</h2>
+              <h2 class="text-base font-bold text-white">🤖 AI 조언(포트폴리오)</h2>
               <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · KRW/USD 포트폴리오 자동 연동</p>
             </div>
           </div>
@@ -472,7 +439,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
             </button>
           </div>
 
-          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm">
+          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm max-h-[240px] lg:max-h-[230px]">
             <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 shadow-sm">
               안녕하세요! 등록된 한국주식(KRW)과 미국주식(USD) 포트폴리오의 현재가 및 수익률을 바탕으로 맞춤형 상담을 도와드립니다.
             </div>
@@ -497,6 +464,40 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         </section>
       </div>
     </div>
+
+    <!-- 하단 영역: 포트폴리오 테이블 (전체 가로폭 100% 확장) -->
+    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-white">📋 포트폴리오</h2>
+          <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다</p>
+        </div>
+        <button
+          id="googleFinanceFetchBtn"
+          type="button"
+          class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
+        >
+          🔄 현재가 동기화
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
+              <th class="py-3 px-4">섹터/종목</th>
+              <th class="py-3 px-4 text-center">통화</th>
+              <th class="py-3 px-4 text-right">매수단가 (KRW/USD)</th>
+              <th class="py-3 px-4 text-right">현재가 (KRW/USD)</th>
+              <th class="py-3 px-4 text-right">수량 (주)</th>
+              <th class="py-3 px-4 text-right">평가금액 (KRW/USD)</th>
+              <th class="py-3 px-4 text-right">평가손익 (KRW/USD)</th>
+              <th class="py-3 px-4 text-center">관리</th>
+            </tr>
+          </thead>
+          <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -578,7 +579,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       sheetGuideBox.classList.toggle('hidden');
     });
 
-    // 티커 입력 시 한국주식(KRW) / 미국주식(USD) 자동 감지
     stockCodeInput.addEventListener('input', () => {
       const val = stockCodeInput.value.trim().toUpperCase();
       if (!val) return;
@@ -589,9 +589,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     });
 
-    /**
-     * 종목의 통화(KRW 또는 USD) 판별
-     */
     function detectCurrency(code, savedCurrency) {
       if (savedCurrency === 'USD' || savedCurrency === 'KRW') return savedCurrency;
       const c = String(code || '').trim().toUpperCase();
@@ -607,9 +604,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return 'KRW';
     }
 
-    /**
-     * 테이블 셀용 숫자 포맷 (단위는 헤더에만 표기하므로 숫자만 깔끔하게 반환)
-     */
     function formatAmountPlain(number, currency) {
       const num = Number(number) || 0;
       if (currency === 'USD') {
@@ -630,10 +624,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .replace(/'/g, '&#039;');
     }
 
-    /**
-     * 입력된 종목코드(예: "005930", "KRX:005930", "AAPL", "NASDAQ:AAPL")를
-     * 구글 시트 GOOGLEFINANCE() 표준 티커 형식으로 변환합니다.
-     */
     function toGoogleFinanceTicker(rawCode) {
       if (!rawCode) return '';
       let code = String(rawCode).trim().toUpperCase();
@@ -647,9 +637,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return code;
     }
 
-    /**
-     * 내 포트폴리오 전체 종목을 구글 시트 A1 셀에 바로 붙여넣을 수 있는 탭 구분(TSV) 수식 표로 복사
-     */
     async function copyPortfolioGoogleFinanceTable() {
       if (portfolio.length === 0) {
         alert('먼저 포트폴리오에 종목을 1개 이상 추가해 주세요.');
@@ -795,7 +782,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return { priceMap };
     }
 
-    // 로컬 캐시 도우미
     function getLocalPriceMap() {
       try {
         return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENT_PRICES) || '{}');
@@ -1157,7 +1143,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
       totalCountText.textContent = `보유 ${uniqueStocks}종목 (${portfolio.length}건)`;
 
-      // 상단 요약 카드 (KRW / USD 구분 표기)
       const buyLines = [];
       const evalLines = [];
       const profitLines = [];
@@ -1190,7 +1175,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         sectorSummaryBox.innerHTML = '<span class="text-slate-500">등록된 내역이 없습니다.</span>';
       } else {
         const sectorMap = {};
-        // 통화 단위가 다를 경우 간이 환율(1400) 가중치로 비중 환산
         let totalWeightBase = 0;
         portfolio.forEach((item) => {
           const cur = detectCurrency(item.code, item.currency);
@@ -1220,7 +1204,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         return;
       }
 
-      // 통화별 총 평가액 (통화 내 비중 계산용)
       portfolioTableBody.innerHTML = portfolio
         .map((item) => {
           const currency = detectCurrency(item.code, item.currency);
@@ -1244,42 +1227,42 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
           return `
             <tr class="hover:bg-slate-800/60 transition">
-              <td class="py-3 px-2.5">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(item.name)}</span>
-                  ${item.code ? `<span class="text-[11px] text-slate-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
+                  ${item.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
+                  <span class="text-xs text-slate-500 ml-1">${escapeHtml(item.date)}</span>
                 </div>
-                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(item.date)}</div>
               </td>
-              <td class="py-3 px-2.5 text-center">
-                <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
+              <td class="py-3 px-4 text-center">
+                <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
               </td>
-              <td class="py-3 px-2.5 text-right text-slate-300 font-mono">${formatAmountPlain(item.price, currency)}</td>
-              <td class="py-3 px-2.5 text-right">
+              <td class="py-3 px-4 text-right text-slate-300 font-mono">${formatAmountPlain(item.price, currency)}</td>
+              <td class="py-3 px-4 text-right">
                 <input
                   type="number"
                   min="0.0001"
                   step="any"
                   value="${curPrice}"
                   onchange="updateCurrentPrice('${item.id}', this.value)"
-                  class="w-24 sm:w-28 text-right text-xs font-mono px-2 py-1 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
-              <td class="py-3 px-2.5 text-right text-slate-300 font-mono">${Number(item.quantity).toLocaleString('ko-KR')}</td>
-              <td class="py-3 px-2.5 text-right font-semibold text-white font-mono">
-                <div>${formatAmountPlain(evalTotal, currency)}</div>
-                <div class="text-[11px] text-indigo-400 font-sans font-normal">${weight}%</div>
+              <td class="py-3 px-4 text-right text-slate-300 font-mono">${Number(item.quantity).toLocaleString('ko-KR')}</td>
+              <td class="py-3 px-4 text-right font-semibold text-white font-mono">
+                <span>${formatAmountPlain(evalTotal, currency)}</span>
+                <span class="text-xs text-indigo-400 font-sans font-normal ml-1.5">(${weight}%)</span>
               </td>
-              <td class="py-3 px-2.5 text-right font-semibold font-mono ${profitColor}">
-                <div>${pSign}${formatAmountPlain(profit, currency)}</div>
-                <div class="text-[11px]">(${pSign}${profitRate.toFixed(2)}%)</div>
+              <td class="py-3 px-4 text-right font-semibold font-mono ${profitColor}">
+                <span>${pSign}${formatAmountPlain(profit, currency)}</span>
+                <span class="text-xs ml-1">(${pSign}${profitRate.toFixed(2)}%)</span>
               </td>
-              <td class="py-3 px-2.5 text-center">
+              <td class="py-3 px-4 text-center whitespace-nowrap">
                 <button
                   type="button"
                   onclick="deleteStockItem('${item.id}')"
-                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2 py-1 rounded transition"
+                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2.5 py-1 rounded transition whitespace-nowrap"
                 >
                   삭제
                 </button>
