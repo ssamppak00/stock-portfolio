@@ -156,28 +156,29 @@ function readStockCodeSheet() {
   var vals = codeSheet.getRange(1, 5, lastRow, 2).getDisplayValues();
   var list = [];
   for (var i = 0; i &lt; vals.length; i++) {
-    var rawCode = String(vals[i][0] || '').trim();
-    var rawName = String(vals[i][1] || '').trim();
-    if (!rawCode || !rawName) continue;
-    // 헤더 행 제외
-    var upperCode = rawCode.toUpperCase();
-    if (upperCode === '종목코드' || upperCode === '종목번호' || upperCode === '코드' || upperCode === 'CODE' || upperCode === 'TICKER' || rawName === '종목명') {
+    var colE = String(vals[i][0] || '').trim();
+    var colF = String(vals[i][1] || '').trim();
+    if (!colE || !colF) continue;
+    var upperE = colE.toUpperCase();
+    if (upperE === '종목코드' || upperE === '종목번호' || upperE === '코드' || upperE === 'CODE' || upperE === 'TICKER' || colF === '종목명') {
       continue;
     }
-    var cleanCode = normalizeStockCodeStr(rawCode);
-    list.push([cleanCode, rawName]);
+    var cleanCode = normalizeStockCodeStr(colE);
+    list.push([cleanCode, colF]);
   }
   return list;
 }
 
-// [종목코드] 시트의 E열(종목코드)과 F열(종목명)을 참조하여 검색
+// [종목코드] 시트(E열: 종목코드, F열: 종목명) 우선 참조 + 미등록 종목 네이버 증권 자동완성 보조 검색
 function searchStockApi(query) {
-  var q = String(query || '').trim().toUpperCase().replace(/\s+/g, '');
+  var rawQ = String(query || '').trim();
+  var q = rawQ.toUpperCase().replace(/\s+/g, '');
   if (!q) return [];
   var rows = readStockCodeSheet();
   var exact = [];
   var prefix = [];
   var partial = [];
+  var seen = {};
 
   for (var i = 0; i &lt; rows.length; i++) {
     var code = rows[i][0];
@@ -193,15 +194,49 @@ function searchStockApi(query) {
     };
 
     if (cUp === q || nUp === q) {
+      seen[cUp] = true;
       exact.push(item);
     } else if (cUp.indexOf(q) === 0 || nUp.indexOf(q) === 0) {
+      seen[cUp] = true;
       prefix.push(item);
     } else if (cUp.indexOf(q) !== -1 || nUp.indexOf(q) !== -1) {
+      seen[cUp] = true;
       partial.push(item);
     }
   }
 
-  return exact.concat(prefix).concat(partial);
+  var combined = exact.concat(prefix).concat(partial);
+
+  // [종목코드] 시트에 없는 종목일 경우 네이버 증권 자동완성 API로 보조 조회
+  if (combined.length === 0) {
+    try {
+      var naverUrl = 'https://ac.stock.naver.com/ac?q=' + encodeURIComponent(rawQ) + '&amp;target=stock,etf';
+      var resp = UrlFetchApp.fetch(naverUrl, {
+        muteHttpExceptions: true,
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.stock.naver.com/' }
+      });
+      if (resp.getResponseCode() === 200) {
+        var data = JSON.parse(resp.getContentText());
+        var items = (data &amp;&amp; data.items) ? data.items : [];
+        for (var j = 0; j &lt; items.length; j++) {
+          var it = items[j];
+          if (!it || !it.code || !it.name) continue;
+          var nCode = normalizeStockCodeStr(it.code);
+          if (seen[nCode]) continue;
+          seen[nCode] = true;
+          var nation = String(it.nationCode || 'KOR').toUpperCase();
+          combined.push({
+            code: nCode,
+            name: String(it.name).trim(),
+            exchange: String(it.typeCode || 'KRX'),
+            currency: (nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(nCode)) ? 'KRW' : 'USD'
+          });
+        }
+      }
+    } catch (_e) {}
+  }
+
+  return combined;
 }
 
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 &gt; 0, 평균단가 자동계산) 갱신
@@ -399,13 +434,44 @@ function doGet(e) {
   var sheets = getOrCreateSheets();
   var ticker = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.ticker) ? e.parameter.ticker.trim() : '';
   if (ticker) {
-    var gfTicker = toGfTicker(ticker);
+    var matchedName = '';
+    var resolvedTicker = ticker;
+    var cleanCheck = normalizeStockCodeStr(ticker);
+    // 종목명(예: 'KODEX 200타겟')이 입력된 경우 [종목코드] 시트(E·F열)에서 종목코드 먼저 조회
+    if (/[가-힣\s]/.test(cleanCheck) || (!/^\d{6}$/.test(cleanCheck) &amp;&amp; !/^\d{4}[0-9A-Z]{2}$/.test(cleanCheck) &amp;&amp; !/^[A-Z.]{1,6}$/.test(cleanCheck))) {
+      var found = searchStockApi(ticker);
+      if (found &amp;&amp; found.length &gt; 0) {
+        resolvedTicker = found[0].code;
+        matchedName = found[0].name;
+      }
+    }
+    var gfTicker = toGfTicker(resolvedTicker);
     var cell = sheets.pfSheet.getRange('Z1');
     cell.setFormula('=IFERROR(GOOGLEFINANCE("' + gfTicker + '", "price"), "")');
     SpreadsheetApp.flush();
     var val = Number(cell.getValue());
     cell.clearContent();
-    return ContentService.createTextOutput(JSON.stringify({ ok: true, ticker: gfTicker, price: val }))
+
+    // GOOGLEFINANCE가 일부 국내 ETF/신규종목 가격을 반환하지 못할 때 네이버 금융 모바일 API 보조 조회
+    if (!val || isNaN(val) || val &lt;= 0) {
+      var korCode = normalizeStockCodeStr(resolvedTicker);
+      if (/^\d{4}[0-9A-Z]{2}$/.test(korCode)) {
+        try {
+          var nResp = UrlFetchApp.fetch('https://m.stock.naver.com/api/stock/' + korCode + '/basic', {
+            muteHttpExceptions: true,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (nResp.getResponseCode() === 200) {
+            var nData = JSON.parse(nResp.getContentText());
+            var pStr = nData.nowPrice || nData.closePrice;
+            if (pStr) val = parseFloat(String(pStr).replace(/,/g, ''));
+            if (!matchedName &amp;&amp; nData.stockName) matchedName = String(nData.stockName);
+          }
+        } catch (_ne) {}
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, ticker: gfTicker, name: matchedName, price: val }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -977,13 +1043,27 @@ function doPost(e) {
       { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: [] },
       { code: '352820', name: '하이브', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['HYBE', '방탄'] },
       { code: '035900', name: 'JYP Ent.', exchange: 'KOSDAQ', currency: 'KRW', sector: '기타', aliases: ['JYP', '제이와이피'] },
-      // 국내 주요 ETF (KODEX / TIGER / ACE / SOL)
+      // 국내 주요 ETF (KODEX / TIGER / ACE / SOL / RISE)
       { code: '069500', name: 'KODEX 200', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스200'] },
+      { code: '483280', name: 'KODEX 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['KODEX 200타겟', '코덱스200타겟', '코덱스200타겟위클리커버드콜'] },
+      { code: '278530', name: 'KODEX 200TR', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스200TR'] },
+      { code: '252670', name: 'KODEX 200선물인버스2X', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['곱버스', '코덱스200선물인버스2X'] },
+      { code: '252710', name: 'KODEX 200동일가중', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: [] },
+      { code: '284430', name: 'KODEX 200미국채혼합', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: [] },
+      { code: '122630', name: 'KODEX 레버리지', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스레버리지'] },
+      { code: '114800', name: 'KODEX 인버스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스인버스'] },
       { code: '379800', name: 'KODEX 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스S&P500', 'KODEX 미국S&P500TR'] },
       { code: '379810', name: 'KODEX 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스나스닥100', 'KODEX 미국나스닥100TR'] },
+      { code: '489250', name: 'KODEX 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코미당'] },
+      { code: '483290', name: 'KODEX 미국배당다우존스타겟커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['KODEX 미국배당다우존스타겟'] },
+      { code: '441640', name: 'KODEX 미국배당커버드콜액티브', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스미국배당커버드콜'] },
+      { code: '102110', name: 'TIGER 200', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거200'] },
+      { code: '491620', name: 'TIGER 200타겟위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['TIGER 200타겟', '타이거200타겟위클리커버드콜'] },
+      { code: '475720', name: 'RISE 200위클리커버드콜', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['라이즈200위클리커버드콜'] },
       { code: '360750', name: 'TIGER 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거S&P500', '타이거미국S&P500'] },
       { code: '133690', name: 'TIGER 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거나스닥100', '타이거미국나스닥100'] },
       { code: '458730', name: 'TIGER 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타미당', '한국판SCHD', '타이거미국배당'] },
+      { code: '458760', name: 'TIGER 미국배당다우존스타겟커버드콜2호', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거미국배당타겟2호'] },
       { code: '381180', name: 'TIGER 미국필라델피아반도체나스닥', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거필라델피아반도체'] },
       { code: '381170', name: 'TIGER 미국테크TOP10 INDXX', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거미국테크탑10'] },
       { code: '360200', name: 'ACE 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에이스S&P500'] },
@@ -1183,15 +1263,16 @@ function doPost(e) {
         }
       });
 
-      // 3순위: 시트 미연결 시 기본 내장 사전 폴백
-      if (sheetStockCodes.length === 0) {
-        BUILTIN_STOCK_DB.forEach((item) => {
-          if (!seenCodes.has(item.code)) {
-            seenCodes.add(item.code);
-            dynamicPool.push(item);
-          }
-        });
-      }
+      // 3순위: 기본 내장 사전 폴백 (시트에 없거나 미동기화 종목 보조)
+      BUILTIN_STOCK_DB.forEach((item) => {
+        if (!seenCodes.has(item.code)) {
+          seenCodes.add(item.code);
+          dynamicPool.push(item);
+        } else {
+          const existing = dynamicPool.find((d) => d.code === item.code);
+          if (existing) existing.aliases = item.aliases || [];
+        }
+      });
 
       const exactMatches = [];
       const prefixMatches = [];
@@ -1236,42 +1317,67 @@ function doPost(e) {
       }
     }
 
-    // 구글 시트 [종목코드] 시트(E열: 종목코드, F열: 종목명) 실시간 조회
+    // 구글 시트 [종목코드] 시트(E열: 종목코드, F열: 종목명) 실시간 조회 + 네이버 증권 자동완성 보조 조회
     async function fetchRemoteStockSuggestions(rawQuery) {
       const q = String(rawQuery || '').trim();
       if (!q) return [];
-
-      // 이미 브라우저에 [종목코드] 시트 전체 데이터가 캐시되어 있으면 서버 재호출 불필요 (0ms 즉시 응답)
-      if (sheetStockCodes.length > 0) {
-        return [];
-      }
 
       const cacheKey = q.toUpperCase();
       if (searchCache.has(cacheKey)) {
         return searchCache.get(cacheKey);
       }
 
+      const results = [];
+      const seen = new Set();
+      const addItem = (code, name, exchange, currency) => {
+        const cleanCode = formatDisplayStockCode(String(code || '').trim().replace(/\.(KS|KQ)$/i, ''));
+        const cleanName = String(name || '').trim();
+        if (!cleanCode || cleanCode === '-' || !cleanName || seen.has(cleanCode)) return;
+        seen.add(cleanCode);
+        results.push({
+          code: cleanCode,
+          name: cleanName,
+          exchange: exchange || '종목코드',
+          currency: currency || detectCurrency(cleanCode),
+        });
+      };
+
+      // 1) 구글 시트 [종목코드] 시트 (E열·F열) 서버 검색
       const sheetUrl = getSheetWebAppUrl();
-      if (!sheetUrl || !sheetUrl.includes('script.google.com')) {
-        return [];
+      if (sheetUrl && sheetUrl.includes('script.google.com')) {
+        const sep = sheetUrl.includes('?') ? '&' : '?';
+        const data = await fetchWithTimeout(`${sheetUrl}${sep}search=${encodeURIComponent(q)}`, 2200);
+        if (Array.isArray(data?.results) && data.results.length > 0) {
+          data.results.forEach((r) => addItem(r.code, r.name, r.exchange || '종목코드', r.currency));
+          searchCache.set(cacheKey, results);
+          return results;
+        }
       }
 
-      const sep = sheetUrl.includes('?') ? '&' : '?';
-      const data = await fetchWithTimeout(`${sheetUrl}${sep}search=${encodeURIComponent(q)}`, 2500);
-      const results = [];
-      if (Array.isArray(data?.results) && data.results.length > 0) {
-        data.results.forEach((r) => {
-          const cleanCode = formatDisplayStockCode(r.code);
-          const cleanName = String(r.name || '').trim();
-          if (cleanCode && cleanName) {
-            results.push({
-              code: cleanCode,
-              name: cleanName,
-              exchange: '종목코드',
-              currency: r.currency || detectCurrency(cleanCode),
-            });
+      // 2) Apps Script 미재배포 상태이거나 시트에 없는 종목일 때 네이버 증권 자동완성 API 보조 조회
+      const naverTargetUrl = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(q)}&target=stock,etf`;
+      const parseNaverData = (nData) => {
+        const items = nData?.items || [];
+        items.forEach((it) => {
+          if (it && typeof it === 'object' && !Array.isArray(it)) {
+            const nation = String(it.nationCode || 'KOR').toUpperCase();
+            const code = String(it.code || '').trim();
+            const cur = nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(code) ? 'KRW' : 'USD';
+            addItem(code, it.name, it.typeCode || 'KRX', cur);
           }
         });
+      };
+
+      await Promise.allSettled([
+        fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(naverTargetUrl)}`, 2000).then(
+          (d) => d && parseNaverData(d)
+        ),
+        fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(naverTargetUrl)}`, 2000).then(
+          (d) => d && parseNaverData(d)
+        ),
+      ]);
+
+      if (results.length > 0) {
         searchCache.set(cacheKey, results);
       }
       return results;
@@ -1815,21 +1921,67 @@ function doPost(e) {
     }
 
     async function fetchSingleTickerPrice(queryTicker) {
+      let resolvedInput = String(queryTicker || '').trim();
+      const strippedCheck = stripInputStockPrefix(resolvedInput);
+      if (/[가-힣]/.test(strippedCheck) || /\s/.test(strippedCheck)) {
+        const localHits = searchLocalStockDictionary(strippedCheck);
+        if (localHits.length > 0) {
+          resolvedInput = localHits[0].code;
+        } else {
+          const remoteHits = await fetchRemoteStockSuggestions(strippedCheck);
+          if (remoteHits.length > 0) {
+            resolvedInput = remoteHits[0].code;
+          }
+        }
+      }
+
+      const ticker = toGoogleFinanceTicker(resolvedInput);
+      const korCodeMatch = ticker.match(/^(?:KRX:|KOSDAQ:)?(\d{5}[0-9A-Z])$/i);
+      const korCode = korCodeMatch ? korCodeMatch[1].toUpperCase() : '';
+      let num = NaN;
+      let resolvedTicker = ticker;
+      let resolvedName = '';
+
       const url = getSheetWebAppUrl();
-      if (!url) {
-        sheetGuideBox.classList.remove('hidden');
-        throw new Error('먼저 상단에 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
+      if (url) {
+        try {
+          const sep = url.includes('?') ? '&' : '?';
+          const res = await fetch(`${url}${sep}ticker=${encodeURIComponent(ticker)}&_t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            num = parseFloat(String(data?.price || '').replace(/,/g, ''));
+            if (data?.ticker) resolvedTicker = data.ticker;
+            if (data?.name) resolvedName = data.name;
+          }
+        } catch (err) {
+          console.warn('구글 시트 단일 티커 가격 조회 실패, 보조 API 시도:', err);
+        }
       }
-      const ticker = toGoogleFinanceTicker(queryTicker);
-      const sep = url.includes('?') ? '&' : '?';
-      const res = await fetch(`${url}${sep}ticker=${encodeURIComponent(ticker)}&_t=${Date.now()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const num = parseFloat(String(data?.price || '').replace(/,/g, ''));
+
+      if ((isNaN(num) || num <= 0) && korCode) {
+        try {
+          const naverBasic = await fetchJsonWithCorsFallback(`https://m.stock.naver.com/api/stock/${korCode}/basic`);
+          const rawPrice = naverBasic?.closePrice || naverBasic?.nowVal || '';
+          const parsedNaver = parseFloat(String(rawPrice).replace(/,/g, ''));
+          if (!isNaN(parsedNaver) && parsedNaver > 0) {
+            num = parsedNaver;
+          }
+          if (!resolvedName && naverBasic?.stockName) {
+            resolvedName = naverBasic.stockName;
+          }
+        } catch (err) {
+          console.warn('네이버 모바일 시세 보조 조회 실패:', err);
+        }
+      }
+
       if (isNaN(num) || num <= 0) {
-        throw new Error(`GOOGLEFINANCE('${ticker}') 가격을 가져오지 못했습니다. 티커를 확인해 주세요.`);
+        if (!url) {
+          sheetGuideBox.classList.remove('hidden');
+          throw new Error('먼저 상단에 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
+        }
+        throw new Error(`GOOGLEFINANCE('${resolvedTicker}') 가격을 가져오지 못했습니다. 티커를 확인해 주세요.`);
       }
-      return { singlePrice: num, ticker };
+      return { singlePrice: num, ticker: resolvedTicker, name: resolvedName };
     }
 
     saveSheetUrlBtn.addEventListener('click', async () => {
@@ -1928,9 +2080,12 @@ function doPost(e) {
           }
         }
 
-        if (getSheetWebAppUrl() && (codeQuery || stockCodeInput.value.trim())) {
+        if (codeQuery || stockCodeInput.value.trim()) {
           const result = await fetchSingleTickerPrice(codeQuery || stockCodeInput.value.trim());
           stockCodeInput.value = formatDisplayStockCode(result.ticker);
+          if (result.name && !stockNameInput.value.trim()) {
+            stockNameInput.value = result.name;
+          }
           marketCurrencyInput.value = detectCurrency(result.ticker);
           currentPriceInput.value = result.singlePrice;
           if (!buyPriceInput.value) {
