@@ -1,37 +1,37 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>내 주식 포트폴리오 & Gemini AI 투자 상담 (Supabase 실시간 동기화)</title>
+  <title>내 주식 포트폴리오 & Gemini AI 투자 상담 (다크모드)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen">
   <!-- 상단 헤더 -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-10 shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-slate-900">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Supabase 클라우드 DB & 기기 간 실시간 동기화 지원</p>
+        <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
+        <p class="text-xs text-slate-400 mt-0.5">Supabase 클라우드 DB & 기기 간 실시간 동기화 지원</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
-      <div class="flex flex-wrap items-center gap-2 bg-slate-100 p-2 rounded-lg">
-        <label for="apiKeyInput" class="text-xs font-semibold text-slate-600 whitespace-nowrap">🔑 Gemini API 키:</label>
+      <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
+        <label for="apiKeyInput" class="text-xs font-semibold text-slate-300 whitespace-nowrap">🔑 Gemini API 키:</label>
         <input
           id="apiKeyInput"
           type="password"
           placeholder="API 키를 입력하세요"
-          class="text-xs px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-52 bg-white"
+          class="text-xs px-2.5 py-1.5 rounded border border-slate-600 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-52"
         />
         <button
           id="saveApiKeyBtn"
           type="button"
-          class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-3 py-1.5 rounded transition"
+          class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded transition"
         >
           저장
         </button>
-        <span id="apiKeyStatus" class="text-xs text-slate-500 whitespace-nowrap">미등록</span>
+        <span id="apiKeyStatus" class="text-xs text-slate-400 whitespace-nowrap">미등록</span>
       </div>
     </div>
   </header>
@@ -39,24 +39,24 @@
   <!-- 메인 대시보드 영역 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Supabase 연결 및 로그인 패널 -->
-    <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg mb-6">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
         <div class="flex items-center gap-2">
-          <h2 class="text-base font-bold text-slate-900">☁️ Supabase 클라우드 동기화 및 계정 설정</h2>
-          <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">로컬 모드 (미연결)</span>
+          <h2 class="text-base font-bold text-white">☁️ Supabase 클라우드 동기화 및 계정 설정</h2>
+          <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">로컬 모드 (미연결)</span>
         </div>
         <button
           id="toggleSqlGuideBtn"
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline self-start md:self-auto"
+          class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline self-start md:self-auto"
         >
           📌 Supabase 초기 테이블 생성 SQL 보기
         </button>
       </div>
 
       <!-- SQL 안내 박스 (기본 숨김) -->
-      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-slate-900 text-slate-100 rounded-lg text-xs overflow-x-auto">
-        <p class="text-amber-300 font-semibold mb-2">Supabase 대시보드 → SQL Editor에 아래 SQL을 붙여넣고 Run을 눌러주세요 (최초 1회):</p>
+      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto">
+        <p class="text-amber-400 font-semibold mb-2">Supabase 대시보드 → SQL Editor에 아래 SQL을 붙여넣고 Run을 눌러주세요 (최초 1회):</p>
         <pre class="leading-relaxed select-all">create table if not exists public.portfolios (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
@@ -80,27 +80,27 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- 1) Supabase URL / Anon Key 설정 -->
-        <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
-          <p class="text-xs font-bold text-slate-700">1단계: Supabase 프로젝트 연결</p>
+        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
+          <p class="text-xs font-bold text-slate-300">1단계: Supabase 프로젝트 연결</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               id="supabaseUrlInput"
               type="url"
               placeholder="Project URL (https://xxx.supabase.co)"
-              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <input
               id="supabaseKeyInput"
               type="password"
               placeholder="Anon public API Key"
-              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
           <div class="flex items-center justify-end gap-2">
             <button
               id="saveSupabaseBtn"
               type="button"
-              class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3.5 py-1.5 rounded transition"
+              class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-1.5 rounded transition"
             >
               연결 정보 저장
             </button>
@@ -108,44 +108,44 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         </div>
 
         <!-- 2) 사용자 이메일 로그인 / 회원가입 -->
-        <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
+        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
           <div class="flex items-center justify-between">
-            <p class="text-xs font-bold text-slate-700">2단계: 사용자 로그인 (기기 간 내 데이터 동기화)</p>
-            <span id="userEmailText" class="text-xs text-emerald-700 font-semibold">로그아웃 상태</span>
+            <p class="text-xs font-bold text-slate-300">2단계: 사용자 로그인 (기기 간 내 데이터 동기화)</p>
+            <span id="userEmailText" class="text-xs text-emerald-400 font-semibold">로그아웃 상태</span>
           </div>
           <div id="authFormArea" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               id="authEmailInput"
               type="email"
               placeholder="이메일 주소"
-              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <input
               id="authPasswordInput"
               type="password"
               placeholder="비밀번호 (6자 이상)"
-              class="text-xs px-3 py-2 rounded border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div class="flex items-center justify-end gap-2">
             <button
               id="signInBtn"
               type="button"
-              class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded transition"
+              class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded transition"
             >
               로그인
             </button>
             <button
               id="signUpBtn"
               type="button"
-              class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-semibold px-3 py-1.5 rounded transition"
+              class="text-xs bg-slate-700 hover:bg-slate-600 text-white font-semibold px-3 py-1.5 rounded transition"
             >
               회원가입
             </button>
             <button
               id="signOutBtn"
               type="button"
-              class="hidden text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded transition"
+              class="hidden text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-1.5 rounded transition"
             >
               로그아웃
             </button>
@@ -156,18 +156,18 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
     <!-- 상단 요약 카드 3종 -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">총 투자 금액</p>
-        <p id="totalInvestmentText" class="text-2xl font-bold text-slate-900 mt-1">0원</p>
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
+        <p class="text-xs font-medium text-slate-400">총 투자 금액</p>
+        <p id="totalInvestmentText" class="text-2xl font-bold text-white mt-1">0원</p>
       </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">보유 종목 수 (매수 건수)</p>
-        <p id="totalCountText" class="text-2xl font-bold text-indigo-600 mt-1">0종목 (0건)</p>
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
+        <p class="text-xs font-medium text-slate-400">보유 종목 수 (매수 건수)</p>
+        <p id="totalCountText" class="text-2xl font-bold text-indigo-400 mt-1">0종목 (0건)</p>
       </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-medium text-slate-500">섹터별 비중 요약</p>
-        <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-600">
-          <span class="text-slate-400">등록된 내역이 없습니다.</span>
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
+        <p class="text-xs font-medium text-slate-400">섹터별 비중 요약</p>
+        <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-300">
+          <span class="text-slate-500">등록된 내역이 없습니다.</span>
         </div>
       </div>
     </section>
@@ -177,27 +177,27 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       <!-- 좌측 영역: 7칸 -->
       <div class="lg:col-span-7 space-y-6">
         <!-- 1. 주식 매수 내역 입력 폼 -->
-        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <h2 class="text-base font-bold text-slate-900 mb-4">➕ 주식 매수 내역 추가</h2>
+        <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
+          <h2 class="text-base font-bold text-white mb-4">➕ 주식 매수 내역 추가</h2>
           <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <label for="buyDate" class="block text-xs font-medium text-slate-600 mb-1">매수일자</label>
+              <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
               <input
                 id="buyDate"
                 type="date"
                 required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="sector" class="block text-xs font-medium text-slate-600 mb-1">분야 / 섹터</label>
+              <label for="sector" class="block text-xs font-medium text-slate-400 mb-1">분야 / 섹터</label>
               <input
                 id="sector"
                 type="text"
                 list="sectorList"
                 placeholder="예: 반도체, 기술, 배당"
                 required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <datalist id="sectorList">
                 <option value="반도체"></option>
@@ -209,17 +209,17 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               </datalist>
             </div>
             <div>
-              <label for="stockName" class="block text-xs font-medium text-slate-600 mb-1">종목명</label>
+              <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명</label>
               <input
                 id="stockName"
                 type="text"
                 placeholder="예: 삼성전자"
                 required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="buyPrice" class="block text-xs font-medium text-slate-600 mb-1">매수단가 (원)</label>
+              <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (원)</label>
               <input
                 id="buyPrice"
                 type="number"
@@ -227,11 +227,11 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 step="any"
                 placeholder="예: 70000"
                 required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">매수수량 (주)</label>
+              <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량 (주)</label>
               <input
                 id="quantity"
                 type="number"
@@ -239,13 +239,13 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 step="any"
                 placeholder="예: 10"
                 required
-                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div class="flex items-end">
               <button
                 type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2 px-4 rounded-lg transition shadow-sm"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-4 rounded-lg transition shadow-sm"
               >
                 포트폴리오에 추가
               </button>
@@ -254,15 +254,15 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         </section>
 
         <!-- 2. 포트폴리오 현황 테이블 -->
-        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-base font-bold text-slate-900">📋 포트폴리오 매수 내역</h2>
+            <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역</h2>
             <span id="storageNoticeText" class="text-xs text-slate-400">브라우저에 자동 저장됩니다</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 bg-slate-50">
+                <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
                   <th class="py-2.5 px-3">섹터</th>
                   <th class="py-2.5 px-3">종목명</th>
                   <th class="py-2.5 px-3">매수일</th>
@@ -272,7 +272,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                   <th class="py-2.5 px-3 text-center">관리</th>
                 </tr>
               </thead>
-              <tbody id="portfolioTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+              <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
             </table>
           </div>
         </section>
@@ -280,56 +280,56 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       <!-- 우측 영역: Gemini AI 투자 상담 챗봇 (5칸) -->
       <div class="lg:col-span-5">
-        <section class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[620px]">
-          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col h-[620px]">
+          <div class="p-4 border-b border-slate-800 flex items-center justify-between">
             <div>
-              <h2 class="text-base font-bold text-slate-900">🤖 Gemini AI 포트폴리오 상담소</h2>
-              <p class="text-xs text-slate-500">모델: <code class="text-indigo-600 font-semibold">gemini-2.5-flash</code> · 내 포트폴리오 자동 연동</p>
+              <h2 class="text-base font-bold text-white">🤖 Gemini AI 포트폴리오 상담소</h2>
+              <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · 내 포트폴리오 자동 연동</p>
             </div>
           </div>
 
-          <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-1.5">
+          <div class="px-4 py-2.5 bg-slate-950/50 border-b border-slate-800 flex flex-wrap gap-1.5">
             <button
               type="button"
               data-prompt="내 포트폴리오 섹터 분산 상태를 점검하고 조언해줘."
-              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+              class="quick-prompt-btn text-xs bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-indigo-800/70 px-2.5 py-1 rounded-full transition"
             >
               💡 내 포트폴리오 섹터 분산 조언해줘
             </button>
             <button
               type="button"
               data-prompt="현재 보유 종목들의 투자 비중을 점검하고 리밸런싱 의견을 알려줘."
-              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+              class="quick-prompt-btn text-xs bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-indigo-800/70 px-2.5 py-1 rounded-full transition"
             >
               ⚖️ 현재 비중 점검해줘
             </button>
             <button
               type="button"
               data-prompt="내 포트폴리오에서 주의해야 할 리스크 요인이 무엇인지 쉽게 설명해줘."
-              class="quick-prompt-btn text-xs bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full transition"
+              class="quick-prompt-btn text-xs bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-indigo-800/70 px-2.5 py-1 rounded-full transition"
             >
               🛡️ 리스크 요인 점검해줘
             </button>
           </div>
 
-          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-sm">
-            <div class="bg-white border border-slate-200 rounded-xl p-3.5 text-slate-700 shadow-sm">
+          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm">
+            <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 shadow-sm">
               안녕하세요! Supabase에 로그인하면 스마트폰과 PC 어디서나 동일한 포트폴리오를 실시간으로 관리하고 AI 상담을 받을 수 있습니다.
             </div>
           </div>
 
-          <form id="chatForm" class="p-3 border-t border-slate-200 bg-white flex gap-2">
+          <form id="chatForm" class="p-3 border-t border-slate-800 bg-slate-900 flex gap-2 rounded-b-xl">
             <input
               id="chatInput"
               type="text"
               placeholder="포트폴리오에 대해 궁금한 점을 물어보세요..."
               required
-              class="flex-1 text-sm px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              class="flex-1 text-sm px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               id="chatSubmitBtn"
               type="submit"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+              class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
             >
               전송
             </button>
@@ -408,7 +408,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .replace(/'/g, '&#039;');
     }
 
-    // 로컬 스토리지 폴백 데이터 불러오기
     function loadLocalPortfolio() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
@@ -423,7 +422,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
     }
 
-    // Supabase 초기화 및 세션 감시
     async function initSupabase() {
       const url = localStorage.getItem(STORAGE_KEY_SB_URL) || '';
       const key = localStorage.getItem(STORAGE_KEY_SB_KEY) || '';
@@ -454,7 +452,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     function updateSyncUI(isCloudActive) {
       if (isCloudActive && currentUser) {
         syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
-        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
         storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email})`;
         userEmailText.textContent = currentUser.email;
         authFormArea.classList.add('hidden');
@@ -463,7 +461,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         signOutBtn.classList.remove('hidden');
       } else {
         syncBadge.textContent = '로컬 모드 (브라우저 저장)';
-        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium';
+        syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
         storageNoticeText.textContent = '브라우저(localStorage)에 자동 저장됩니다';
         userEmailText.textContent = '로그아웃 상태';
         authFormArea.classList.remove('hidden');
@@ -489,7 +487,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     }
 
-    // 원격 DB에서 사용자별 포트폴리오 조회
     async function fetchCloudPortfolio() {
       if (!supabaseClient || !currentUser) return;
       const { data, error } = await supabaseClient
@@ -515,7 +512,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       renderPortfolio();
     }
 
-    // 기기 간 실시간(Realtime) 변경 구독
     function subscribeRealtimePortfolio() {
       if (!supabaseClient || !currentUser) return;
       if (realtimeChannel) {
@@ -539,7 +535,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .subscribe();
     }
 
-    // Supabase 설정 저장 버튼
     saveSupabaseBtn.addEventListener('click', async () => {
       const url = supabaseUrlInput.value.trim();
       const key = supabaseKeyInput.value.trim();
@@ -559,7 +554,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       alert('Supabase 연결 정보가 저장되었습니다. 이제 로그인 또는 회원가입을 진행해 주세요.');
     });
 
-    // 로그인
     signInBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
         alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
@@ -579,7 +573,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     });
 
-    // 회원가입
     signUpBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
         alert('먼저 1단계에서 Supabase URL과 Anon Key를 입력하고 저장해 주세요.');
@@ -599,20 +592,18 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     });
 
-    // 로그아웃
     signOutBtn.addEventListener('click', async () => {
       if (supabaseClient) {
         await supabaseClient.auth.signOut();
       }
     });
 
-    // Gemini API 키 초기 로드 및 저장
     function initGeminiKey() {
       const savedKey = localStorage.getItem(STORAGE_KEY_API_KEY) || '';
       if (savedKey) {
         apiKeyInput.value = savedKey;
         apiKeyStatus.textContent = '저장됨 ✅';
-        apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
+        apiKeyStatus.className = 'text-xs text-emerald-400 font-semibold whitespace-nowrap';
       }
     }
 
@@ -621,17 +612,16 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (!key) {
         localStorage.removeItem(STORAGE_KEY_API_KEY);
         apiKeyStatus.textContent = '미등록';
-        apiKeyStatus.className = 'text-xs text-slate-500 whitespace-nowrap';
+        apiKeyStatus.className = 'text-xs text-slate-400 whitespace-nowrap';
         alert('Gemini API 키가 삭제되었습니다.');
         return;
       }
       localStorage.setItem(STORAGE_KEY_API_KEY, key);
       apiKeyStatus.textContent = '저장됨 ✅';
-      apiKeyStatus.className = 'text-xs text-emerald-600 font-semibold whitespace-nowrap';
+      apiKeyStatus.className = 'text-xs text-emerald-400 font-semibold whitespace-nowrap';
       alert('Gemini API 키가 브라우저에 저장되었습니다.');
     });
 
-    // 화면 렌더링
     function renderPortfolio() {
       const totalAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
@@ -640,7 +630,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       totalCountText.textContent = `${uniqueStocks}종목 (${portfolio.length}건)`;
 
       if (portfolio.length === 0 || totalAmount === 0) {
-        sectorSummaryBox.innerHTML = '<span class="text-slate-400">등록된 내역이 없습니다.</span>';
+        sectorSummaryBox.innerHTML = '<span class="text-slate-500">등록된 내역이 없습니다.</span>';
       } else {
         const sectorMap = {};
         portfolio.forEach((item) => {
@@ -652,7 +642,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         sectorSummaryBox.innerHTML = sortedSectors
           .map(([sec, amt]) => {
             const ratio = ((amt / totalAmount) * 100).toFixed(1);
-            return `<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md font-medium">${escapeHtml(sec)} ${ratio}%</span>`;
+            return `<span class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/80 px-2 py-0.5 rounded-md font-medium">${escapeHtml(sec)} ${ratio}%</span>`;
           })
           .join('');
       }
@@ -660,7 +650,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (portfolio.length === 0) {
         portfolioTableBody.innerHTML = `
           <tr>
-            <td colspan="7" class="py-8 text-center text-slate-400 text-sm">
+            <td colspan="7" class="py-8 text-center text-slate-500 text-sm">
               아직 등록된 주식 매수 내역이 없습니다. 위 입력창에서 첫 종목을 추가해 보세요!
             </td>
           </tr>
@@ -673,23 +663,23 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           const itemTotal = item.price * item.quantity;
           const weight = totalAmount > 0 ? ((itemTotal / totalAmount) * 100).toFixed(1) : '0.0';
           return `
-            <tr class="hover:bg-slate-50 transition">
+            <tr class="hover:bg-slate-800/60 transition">
               <td class="py-3 px-3">
-                <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
+                <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
               </td>
-              <td class="py-3 px-3 font-semibold text-slate-900">${escapeHtml(item.name)}</td>
-              <td class="py-3 px-3 text-xs text-slate-500">${escapeHtml(item.date)}</td>
-              <td class="py-3 px-3 text-right">${Number(item.price).toLocaleString('ko-KR')}원</td>
-              <td class="py-3 px-3 text-right">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
-              <td class="py-3 px-3 text-right font-semibold text-slate-900">
+              <td class="py-3 px-3 font-semibold text-white">${escapeHtml(item.name)}</td>
+              <td class="py-3 px-3 text-xs text-slate-400">${escapeHtml(item.date)}</td>
+              <td class="py-3 px-3 text-right text-slate-200">${Number(item.price).toLocaleString('ko-KR')}원</td>
+              <td class="py-3 px-3 text-right text-slate-200">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
+              <td class="py-3 px-3 text-right font-semibold text-white">
                 ${formatKRW(itemTotal)}
-                <span class="text-xs text-indigo-600 font-normal">(${weight}%)</span>
+                <span class="text-xs text-indigo-400 font-normal">(${weight}%)</span>
               </td>
               <td class="py-3 px-3 text-center">
                 <button
                   type="button"
                   onclick="deleteStockItem('${item.id}')"
-                  class="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded transition"
+                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2 py-1 rounded transition"
                 >
                   삭제
                 </button>
@@ -700,7 +690,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .join('');
     }
 
-    // 종목 추가 (Supabase 로그인 시 원격 저장, 미로그인 시 로컬 저장)
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = buyDateInput.value;
@@ -749,7 +738,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       stockNameInput.focus();
     });
 
-    // 종목 삭제
     window.deleteStockItem = async function (id) {
       if (supabaseClient && currentUser) {
         const { error } = await supabaseClient
@@ -788,7 +776,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (role === 'user') {
         wrapper.className = 'bg-indigo-600 text-white rounded-xl p-3.5 ml-8 shadow-sm whitespace-pre-wrap';
       } else {
-        wrapper.className = 'bg-white border border-slate-200 text-slate-800 rounded-xl p-3.5 mr-4 shadow-sm whitespace-pre-wrap leading-relaxed';
+        wrapper.className = 'bg-slate-800 border border-slate-700 text-slate-100 rounded-xl p-3.5 mr-4 shadow-sm whitespace-pre-wrap leading-relaxed';
       }
       wrapper.textContent = text;
       chatMessages.appendChild(wrapper);
@@ -848,7 +836,7 @@ ${userQuestion}`;
       } catch (error) {
         console.error('Gemini API 호출 오류:', error);
         loadingBubble.textContent = `❌ 오류가 발생했습니다: ${error.message}\nAPI 키가 정확한지 확인해 주세요.`;
-        loadingBubble.classList.add('text-rose-600');
+        loadingBubble.classList.add('text-rose-400');
       } finally {
         chatSubmitBtn.disabled = false;
         chatMessages.scrollTop = chatMessages.scrollHeight;
