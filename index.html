@@ -57,7 +57,7 @@
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ [거래내역] 시트에는 거래내역을 시간 역순으로 기록하고, [포트폴리오] 시트에는 티커 기준 보유수량이 0보다 큰 종목만 평균단가로 자동 집계합니다!
+            ✅ [거래내역] 시트에는 거래내역을 시간 역순('26/08/15 형식)으로 기록하고, [포트폴리오] 시트에는 보유수량이 0보다 큰 종목만 자동 집계합니다!
           </p>
           <button
             id="copyAppsScriptBtn"
@@ -111,11 +111,29 @@ function getOrCreateSheets() {
   return { ss: ss, tradesSheet: tradesSheet, pfSheet: pfSheet };
 }
 
-function formatDateCell(val) {
+function normalizeIsoDate(val) {
   if (val instanceof Date) {
     return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   }
-  return String(val || '').slice(0, 10);
+  var s = String(val || '').trim().replace(/^'+/, '');
+  var m4 = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  if (m4) {
+    return m4[1] + '-' + ('0' + m4[2]).slice(-2) + '-' + ('0' + m4[3]).slice(-2);
+  }
+  var m2 = s.match(/^(\d{2})[-./](\d{1,2})[-./](\d{1,2})/);
+  if (m2) {
+    return '20' + m2[1] + '-' + ('0' + m2[2]).slice(-2) + '-' + ('0' + m2[3]).slice(-2);
+  }
+  return s.slice(0, 10);
+}
+
+function toShortDateDisplay(isoStr) {
+  var norm = normalizeIsoDate(isoStr);
+  var m = norm.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    return "'" + m[1].slice(2) + '/' + m[2] + '/' + m[3];
+  }
+  return norm;
 }
 
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 > 0, 평균단가 자동계산) 갱신
@@ -129,7 +147,7 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
       if (!r[0]) continue;
       trades.push({
         id: String(r[0]),
-        date: formatDateCell(r[1]),
+        date: normalizeIsoDate(r[1]),
         type: String(r[2] || 'BUY').toUpperCase(),
         currency: String(r[3] || 'KRW'),
         sector: String(r[4] || ''),
@@ -153,7 +171,8 @@ function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
   }
   if (trades.length &gt; 0) {
     var tradeRows = trades.map(function(t) {
-      return [t.id, t.date, t.type, t.currency, t.sector, t.code, t.name, t.price, t.quantity, t.createdAt];
+      // 구글 시트에서 맨 앞 작은따옴표(')가 이스케이프 처리되어 사라지지 않도록 ''26/08/15 로 기록
+      return [t.id, "'" + toShortDateDisplay(t.date), t.type, t.currency, t.sector, t.code, t.name, t.price, t.quantity, t.createdAt];
     });
     tradesSheet.getRange(2, 1, tradeRows.length, 10).setValues(tradeRows);
   }
@@ -261,7 +280,7 @@ function readState(tradesSheet, pfSheet) {
       if (!r[0]) continue;
       trades.push({
         id: String(r[0]),
-        date: formatDateCell(r[1]),
+        date: normalizeIsoDate(r[1]),
         type: String(r[2] || 'BUY').toUpperCase(),
         currency: String(r[3] || 'KRW'),
         sector: String(r[4] || ''),
@@ -296,7 +315,7 @@ function readState(tradesSheet, pfSheet) {
         price: avgPrice,
         currentPrice: curPrice,
         quantity: qty,
-        date: formatDateCell(p[7]),
+        date: normalizeIsoDate(p[7]),
         manualCurrentPrice: p[8] !== '' ? Number(p[8]) : null
       });
     }
@@ -337,7 +356,7 @@ function doPost(e) {
       var gfTicker = toGfTicker(tr.code);
       tradesSheet.appendRow([
         String(tr.id),
-        String(tr.date),
+        normalizeIsoDate(tr.date),
         String(tr.type || 'BUY').toUpperCase(),
         String(tr.currency || 'KRW'),
         String(tr.sector || ''),
@@ -386,19 +405,6 @@ function doPost(e) {
       ov[targetKey] = {};
       if (body.currentPrice !== undefined) ov[targetKey].manualCurrentPrice = Number(body.currentPrice);
       rebuildPortfolioSheet(tradesSheet, pfSheet, ov);
-    } else if (action === 'deleteHolding') {
-      var delKey = String(body.id || '').trim().toUpperCase();
-      var lastR = tradesSheet.getLastRow();
-      if (lastR &gt; 1) {
-        var allT = tradesSheet.getRange(2, 1, lastR - 1, 7).getValues();
-        for (var d = allT.length - 1; d &gt;= 0; d--) {
-          var rowKey = (toGfTicker(allT[d][5]) || String(allT[d][6] || '')).trim().toUpperCase();
-          if (rowKey === delKey) {
-            tradesSheet.deleteRow(d + 2);
-          }
-        }
-      }
-      rebuildPortfolioSheet(tradesSheet, pfSheet);
     } else if (action === 'syncAll' &amp;&amp; Array.isArray(body.trades)) {
       var existingLast = tradesSheet.getLastRow();
       var idSet = {};
@@ -413,7 +419,7 @@ function doPost(e) {
           var tk = toGfTicker(tr.code);
           tradesSheet.appendRow([
             String(tr.id),
-            String(tr.date),
+            normalizeIsoDate(tr.date),
             String(tr.type || 'BUY').toUpperCase(),
             String(tr.currency || 'KRW'),
             String(tr.sector || ''),
@@ -561,7 +567,7 @@ function doPost(e) {
                 </datalist>
               </div>
               <div>
-                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">티커 / 종목코드</label>
+                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목번호 / 티커</label>
                 <div class="flex gap-1.5">
                   <input
                     id="stockCode"
@@ -699,7 +705,7 @@ function doPost(e) {
       </div>
     </div>
 
-    <!-- 하단 1: 포트폴리오 테이블 (티커 기준 보유수량 > 0 인 종목만 표시, 가로폭 100%) -->
+    <!-- 하단 1: 포트폴리오 테이블 (종목번호 종목명 통화 평균단가 현재가 수량 평가금액 평가손익 섹터) -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
@@ -718,14 +724,15 @@ function doPost(e) {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-              <th class="py-3 px-4">섹터/종목</th>
+              <th class="py-3 px-4">종목번호</th>
+              <th class="py-3 px-4">종목명</th>
               <th class="py-3 px-4 text-center">통화</th>
-              <th class="py-3 px-4 text-right">평균단가 (KRW/USD)</th>
-              <th class="py-3 px-4 text-right">현재가 (KRW/USD)</th>
-              <th class="py-3 px-4 text-right">수량 (주)</th>
-              <th class="py-3 px-4 text-right">평가금액 (KRW/USD)</th>
-              <th class="py-3 px-4 text-right">평가손익 (KRW/USD)</th>
-              <th class="py-3 px-4 text-center">관리</th>
+              <th class="py-3 px-4 text-right">평균단가</th>
+              <th class="py-3 px-4 text-right">현재가</th>
+              <th class="py-3 px-4 text-right">수량</th>
+              <th class="py-3 px-4 text-right">평가금액</th>
+              <th class="py-3 px-4 text-right">평가손익</th>
+              <th class="py-3 px-4 text-center">섹터</th>
             </tr>
           </thead>
           <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
@@ -733,7 +740,7 @@ function doPost(e) {
       </div>
     </section>
 
-    <!-- 하단 2: 거래내역 시트 기록 테이블 (시간의 역순 기록, 거래단가/수량 수정 가능) -->
+    <!-- 하단 2: 거래내역 시트 기록 테이블 (시간의 역순 기록, 거래일자 '26/08/15 형식, 거래단가/수량 수정 가능) -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
@@ -899,14 +906,46 @@ function doPost(e) {
       });
     }
 
-    // 거래일자를 '26/02/08 형식으로 변환
-    function formatShortDate(dateStr) {
-      const s = String(dateStr || '').trim();
-      const match = s.match(/^(\d{4})[-./](\d{2})[-./](\d{2})/);
+    // 모든 형태의 날짜 입력을 YYYY-MM-DD 로 정규화 (정렬 및 계산용)
+    function normalizeDateKey(dateVal) {
+      if (!dateVal) return '';
+      const raw = String(dateVal).trim().replace(/^'+/, '');
+      const m4 = raw.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
+      if (m4) {
+        return `${m4[1]}-${m4[2].padStart(2, '0')}-${m4[3].padStart(2, '0')}`;
+      }
+      const m2 = raw.match(/^(\d{2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})/);
+      if (m2) {
+        return `20${m2[1]}-${m2[2].padStart(2, '0')}-${m2[3].padStart(2, '0')}`;
+      }
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return raw.slice(0, 10);
+    }
+
+    // 거래일자를 '26/08/15 형식으로 변환
+    function formatShortDate(dateVal) {
+      const iso = normalizeDateKey(dateVal);
+      const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (match) {
         return `'${match[1].slice(2)}/${match[2]}/${match[3]}`;
       }
-      return s;
+      const raw = String(dateVal || '').trim().replace(/^'+/, '');
+      return raw ? `'${raw}` : '-';
+    }
+
+    // 종목번호 표시용 (KRX:005930 -> 005930, NASDAQ:AAPL -> AAPL)
+    function formatDisplayStockCode(rawCode) {
+      if (!rawCode) return '-';
+      return String(rawCode)
+        .trim()
+        .toUpperCase()
+        .replace(/^(KRX:|KOSDAQ:|KOSPI:|NASDAQ:|NYSE:|AMEX:)/, '');
     }
 
     function escapeHtml(str) {
@@ -974,6 +1013,11 @@ function doPost(e) {
 
     // 거래내역(trades)을 시간의 역순으로 정렬하고, 티커 기준으로 보유수량 > 0 인 종목만 평균단가로 집계
     function rebuildLocalPortfolioFromTrades() {
+      trades = trades.map((t) => ({
+        ...t,
+        date: normalizeDateKey(t.date),
+      }));
+
       trades.sort((a, b) => {
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
@@ -1063,7 +1107,7 @@ function doPost(e) {
           const legacyPf = JSON.parse(localStorage.getItem(STORAGE_KEY_PORTFOLIO) || '[]');
           trades = legacyPf.map((item, idx) => ({
             id: String(item.id || Date.now() + idx),
-            date: item.date || new Date().toISOString().split('T')[0],
+            date: normalizeDateKey(item.date || new Date().toISOString().split('T')[0]),
             type: 'BUY',
             currency: detectCurrency(item.code, item.currency),
             sector: item.sector || '기타',
@@ -1102,7 +1146,7 @@ function doPost(e) {
       if (Array.isArray(data?.trades)) {
         trades = data.trades.map((tr) => ({
           id: String(tr.id),
-          date: tr.date || '',
+          date: normalizeDateKey(tr.date || ''),
           type: String(tr.type || 'BUY').toUpperCase(),
           currency: detectCurrency(tr.code, tr.currency),
           sector: tr.sector || '',
@@ -1139,7 +1183,7 @@ function doPost(e) {
               price: avgPrice,
               currentPrice: curPrice,
               quantity: Number(item.quantity) || 0,
-              date: item.date || '',
+              date: normalizeDateKey(item.date || ''),
             };
           });
         localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
@@ -1277,7 +1321,7 @@ function doPost(e) {
     lookupFormPriceBtn.addEventListener('click', async () => {
       const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
       if (!query) {
-        alert('먼저 티커/종목코드(예: 005930, AAPL)를 입력해 주세요.');
+        alert('먼저 종목번호/티커(예: 005930, AAPL)를 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
@@ -1375,7 +1419,7 @@ function doPost(e) {
       if (portfolio.length === 0) {
         portfolioTableBody.innerHTML = `
           <tr>
-            <td colspan="8" class="py-8 text-center text-slate-500 text-sm">
+            <td colspan="9" class="py-8 text-center text-slate-500 text-sm">
               현재 보유수량이 0보다 큰 종목이 없습니다. 위 [매수/매도 내역]에서 매수 기록을 추가해 보세요!
             </td>
           </tr>
@@ -1383,6 +1427,7 @@ function doPost(e) {
         return;
       }
 
+      // 포트폴리오 표: 종목번호 | 종목명 | 통화 | 평균단가 | 현재가 | 수량 | 평가금액 | 평가손익 | 섹터
       portfolioTableBody.innerHTML = portfolio
         .map((item) => {
           const currency = detectCurrency(item.code, item.currency);
@@ -1404,22 +1449,23 @@ function doPost(e) {
               ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
+          const displayCode = formatDisplayStockCode(item.code);
+
           return `
             <tr class="hover:bg-slate-800/60 transition">
-              <td class="py-3 px-4">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
-                  <span class="font-semibold text-white">${escapeHtml(item.name)}</span>
-                  ${item.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
-                </div>
+              <td class="py-3 px-4 font-mono text-slate-300 font-medium whitespace-nowrap">
+                ${escapeHtml(displayCode)}
               </td>
-              <td class="py-3 px-4 text-center">
+              <td class="py-3 px-4 font-semibold text-white whitespace-nowrap">
+                ${escapeHtml(item.name)}
+              </td>
+              <td class="py-3 px-4 text-center whitespace-nowrap">
                 <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
               </td>
-              <td class="py-3 px-4 text-right text-slate-200 font-mono font-semibold">
+              <td class="py-3 px-4 text-right text-slate-200 font-mono font-semibold whitespace-nowrap">
                 ${formatAmountPlain(item.price, currency)}
               </td>
-              <td class="py-3 px-4 text-right">
+              <td class="py-3 px-4 text-right whitespace-nowrap">
                 <input
                   type="text"
                   inputmode="decimal"
@@ -1428,23 +1474,19 @@ function doPost(e) {
                   class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
-              <td class="py-3 px-4 text-right text-slate-300 font-mono">${formatQuantityComma(item.quantity)}</td>
-              <td class="py-3 px-4 text-right font-semibold text-white font-mono">
+              <td class="py-3 px-4 text-right text-slate-300 font-mono whitespace-nowrap">
+                ${formatQuantityComma(item.quantity)}
+              </td>
+              <td class="py-3 px-4 text-right font-semibold text-white font-mono whitespace-nowrap">
                 <span>${formatAmountPlain(evalTotal, currency)}</span>
                 <span class="text-xs text-indigo-400 font-sans font-normal ml-1.5">(${weight}%)</span>
               </td>
-              <td class="py-3 px-4 text-right font-semibold font-mono ${profitColor}">
+              <td class="py-3 px-4 text-right font-semibold font-mono whitespace-nowrap ${profitColor}">
                 <span>${pSign}${formatAmountPlain(profit, currency)}</span>
                 <span class="text-xs ml-1">(${pSign}${profitRate.toFixed(2)}%)</span>
               </td>
               <td class="py-3 px-4 text-center whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick="deleteHoldingItem('${escapeHtml(item.id)}')"
-                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2.5 py-1 rounded transition whitespace-nowrap"
-                >
-                  삭제
-                </button>
+                <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
               </td>
             </tr>
           `;
@@ -1452,7 +1494,7 @@ function doPost(e) {
         .join('');
     }
 
-    // 거래내역 테이블 렌더링 (시간의 역순, 거래일자 '26/02/08 형식, 거래단가/수량 수정 가능)
+    // 거래내역 테이블 렌더링 (시간의 역순, 거래일자 '26/08/15 형식, 거래단가/수량 수정 가능)
     function renderTrades() {
       tradeCountBadge.textContent = `총 ${trades.length}건`;
       if (trades.length === 0) {
@@ -1480,6 +1522,7 @@ function doPost(e) {
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
           const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
+          const displayCode = formatDisplayStockCode(tr.code);
 
           return `
             <tr class="hover:bg-slate-800/50 transition">
@@ -1489,7 +1532,7 @@ function doPost(e) {
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(tr.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(tr.name)}</span>
-                  ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(tr.code)})</span>` : ''}
+                  ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(displayCode)})</span>` : ''}
                 </div>
               </td>
               <td class="py-2.5 px-4 text-center">
@@ -1591,7 +1634,7 @@ function doPost(e) {
     // 매수/매도 내역 추가
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const date = buyDateInput.value;
+      const date = normalizeDateKey(buyDateInput.value);
       const type = tradeTypeInput.value;
       const currency = marketCurrencyInput.value;
       const sector = sectorInput.value.trim();
@@ -1602,7 +1645,7 @@ function doPost(e) {
       const quantity = parseFloat(quantityInput.value);
 
       if (!sector || !code || !name || isNaN(price) || isNaN(quantity)) {
-        alert('모든 필수 입력 항목(티커 포함)을 올바르게 입력해 주세요.');
+        alert('모든 필수 입력 항목(종목번호/티커 포함)을 올바르게 입력해 주세요.');
         return;
       }
 
@@ -1677,24 +1720,6 @@ function doPost(e) {
       }
     };
 
-    // 포트폴리오 종목 전체 삭제 (해당 티커의 거래내역 일괄 삭제)
-    window.deleteHoldingItem = async function (tickerKey) {
-      const key = String(tickerKey).trim().toUpperCase();
-      trades = trades.filter((t) => {
-        const tk = (toGoogleFinanceTicker(t.code || '') || t.name || '').trim().toUpperCase();
-        return tk !== key;
-      });
-      setLocalOverride(key, 'manualCurrentPrice', null);
-      rebuildLocalPortfolioFromTrades();
-
-      try {
-        const resData = await postToGoogleSheet({ action: 'deleteHolding', id: key });
-        if (resData) applyRemoteState(resData);
-      } catch (err) {
-        console.warn('구글 시트 종목 삭제 동기화 오류:', err.message);
-      }
-    };
-
     function buildPortfolioContextText() {
       if (portfolio.length === 0) {
         return '현재 보유 중인 주식 포트폴리오 내역이 없습니다.';
@@ -1706,7 +1731,8 @@ function doPost(e) {
         const evalAmt = curPrice * item.quantity;
         const profit = evalAmt - buyAmt;
         const profitRate = buyAmt > 0 ? ((profit / buyAmt) * 100).toFixed(2) : '0.00';
-        return `${idx + 1}. [${item.sector}/${cur}] ${item.name}${item.code ? `(${item.code})` : ''} - 평균단가: ${cur} ${formatAmountPlain(item.price, cur)}, 현재가: ${cur} ${formatAmountPlain(curPrice, cur)}, 보유수량: ${formatQuantityComma(item.quantity)}주, 평가금액: ${cur} ${formatAmountPlain(evalAmt, cur)}, 수익률: ${profitRate}%`;
+        const displayCode = formatDisplayStockCode(item.code);
+        return `${idx + 1}. [${item.sector}/${cur}] ${item.name}(${displayCode}) - 평균단가: ${cur} ${formatAmountPlain(item.price, cur)}, 현재가: ${cur} ${formatAmountPlain(curPrice, cur)}, 수량: ${formatQuantityComma(item.quantity)}, 평가금액: ${cur} ${formatAmountPlain(evalAmt, cur)}, 수익률: ${profitRate}%`;
       });
 
       return `보유 포트폴리오 (보유수량 > 0):\n${lines.join('\n')}`;
