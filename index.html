@@ -13,7 +13,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">네이버 금융 현재가 연동 · Supabase 클라우드 실시간 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">구글 시트 <code class="text-emerald-400">GOOGLEFINANCE()</code> 현재가 연동 · Supabase 실시간 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -38,26 +38,81 @@
 
   <!-- 메인 대시보드 영역 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Supabase 연결 및 로그인 패널 -->
-    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg mb-6">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+    <!-- Supabase 연결 및 구글 시트 GOOGLEFINANCE 설정 패널 -->
+    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div class="flex items-center gap-2">
-          <h2 class="text-base font-bold text-white">☁️ Supabase 클라우드 동기화 및 계정 설정</h2>
+          <h2 class="text-base font-bold text-white">☁️ 클라우드 동기화(Supabase) & 구글 시트 <code class="text-emerald-400">GOOGLEFINANCE()</code> 설정</h2>
           <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">로컬 모드 (미연결)</span>
         </div>
-        <button
-          id="toggleSqlGuideBtn"
-          type="button"
-          class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline self-start md:self-auto"
-        >
-          📌 Supabase 테이블 생성 / 현재가·종목코드 컬럼 추가 SQL 보기
-        </button>
+        <div class="flex flex-wrap gap-3">
+          <button
+            id="toggleSheetGuideBtn"
+            type="button"
+            class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold underline"
+          >
+            📊 구글 시트 GOOGLEFINANCE() 수식 자동생성 & 연동 방법 보기
+          </button>
+          <button
+            id="toggleSqlGuideBtn"
+            type="button"
+            class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline"
+          >
+            📌 Supabase 테이블 SQL 보기
+          </button>
+        </div>
+      </div>
+
+      <!-- 구글 시트 GOOGLEFINANCE 연동 가이드 & 수식 복사 박스 (기본 숨김) -->
+      <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <p class="text-emerald-400 font-bold">
+            ✅ 방법 1 (가장 쉬움): 아래 버튼을 눌러 수식 표를 복사한 뒤, 새 구글 시트 A1 칸에 붙여넣고 시트 주소만 연결하세요!
+          </p>
+          <button
+            id="copySheetFormulaBtn"
+            type="button"
+            class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded transition whitespace-nowrap self-start sm:self-auto"
+          >
+            📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기
+          </button>
+        </div>
+        <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300">
+          <p>1. 위 <strong>[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기]</strong>를 누르고 구글 시트(<code>https://sheets.new</code>)의 <strong>A1 셀</strong>에 붙여넣기(<code>Ctrl+V</code>)하면 <code>=GOOGLEFINANCE("KRX:005930", "price")</code> 수식이 자동으로 계산됩니다.</p>
+          <p>2. 구글 시트 상단 메뉴 <strong>[파일 > 공유 > 웹에 게시]</strong>에서 <strong>전체 문서 + 쉼표로 구분된 값(.csv)</strong>으로 게시하거나, 우측 상단 <strong>[공유 > 링크가 있는 모든 사용자에게 공개]</strong> 후 주소를 복사해 아래 <strong>3단계 입력칸</strong>에 붙여넣고 저장하세요.</p>
+          <p class="text-amber-300">💡 팁: 한국 주식은 <code>KRX:005930</code>(또는 <code>005930</code> 입력 시 자동 변환), 미국 주식은 <code>NASDAQ:AAPL</code>, <code>NYSE:TSLA</code> 형식을 지원합니다.</p>
+        </div>
+        <div>
+          <p class="text-indigo-300 font-semibold mb-1">
+            ✅ 방법 2 (Apps Script 웹앱 방식 - 시트에 종목을 미리 적어두지 않아도 실시간 계산):
+          </p>
+          <p class="text-slate-400 mb-1">구글 시트 상단 <strong>[확장 프로그램 > Apps Script]</strong>에 아래 코드를 붙여넣고 <strong>[배포 > 새 배포 > 웹 앱(모든 사용자 접근)]</strong> URL을 3단계 칸에 넣으면 어떤 종목이든 즉시 <code>GOOGLEFINANCE()</code>로 조회합니다.</p>
+          <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800 overflow-x-auto">function doGet(e) {
+  var ticker = (e && e.parameter && e.parameter.ticker) ? e.parameter.ticker.trim() : "";
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  if (ticker) {
+    // 6자리 숫자 코드면 KRX: 자동 부착
+    if (/^\d{1,5}$/.test(ticker)) ticker = ("000000" + ticker).slice(-6);
+    if (/^\d{6}$/.test(ticker)) ticker = "KRX:" + ticker;
+    var cell = sheet.getRange("Z1");
+    cell.setFormula('=GOOGLEFINANCE("' + ticker + '", "price")');
+    SpreadsheetApp.flush();
+    var price = cell.getValue();
+    return ContentService.createTextOutput(JSON.stringify({ ticker: ticker, price: Number(price) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  // 파라미터가 없으면 시트 A~C열 전체 반환
+  var rows = sheet.getDataRange().getValues();
+  return ContentService.createTextOutput(JSON.stringify({ rows: rows }))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+        </div>
       </div>
 
       <!-- SQL 안내 박스 (기본 숨김) -->
-      <div id="sqlGuideBox" class="hidden mb-4 p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto space-y-3">
+      <div id="sqlGuideBox" class="hidden p-4 bg-black/60 border border-slate-800 text-slate-200 rounded-lg text-xs overflow-x-auto space-y-3">
         <div>
-          <p class="text-amber-400 font-semibold mb-1">[기존 테이블에 현재가(current_price) 및 종목코드(stock_code) 컬럼 추가 시] SQL Editor에서 실행:</p>
+          <p class="text-amber-400 font-semibold mb-1">[기존 테이블에 현재가(current_price) 및 티커(stock_code) 컬럼 추가 시] SQL Editor에서 실행:</p>
           <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800">alter table public.portfolios add column if not exists current_price numeric;
 alter table public.portfolios add column if not exists stock_code text;</pre>
         </div>
@@ -87,11 +142,11 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- 1) Supabase URL / Anon Key 설정 -->
         <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
           <p class="text-xs font-bold text-slate-300">1단계: Supabase 프로젝트 연결</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div class="grid grid-cols-1 gap-2">
             <input
               id="supabaseUrlInput"
               type="url"
@@ -105,7 +160,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               class="text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
-          <div class="flex items-center justify-end gap-2">
+          <div class="flex items-center justify-end">
             <button
               id="saveSupabaseBtn"
               type="button"
@@ -119,10 +174,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         <!-- 2) 사용자 이메일 로그인 / 회원가입 -->
         <div class="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
           <div class="flex items-center justify-between">
-            <p class="text-xs font-bold text-slate-300">2단계: 사용자 로그인 (기기 간 내 데이터 동기화)</p>
+            <p class="text-xs font-bold text-slate-300">2단계: 사용자 로그인</p>
             <span id="userEmailText" class="text-xs text-emerald-400 font-semibold">로그아웃 상태</span>
           </div>
-          <div id="authFormArea" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div id="authFormArea" class="grid grid-cols-1 gap-2">
             <input
               id="authEmailInput"
               type="email"
@@ -160,6 +215,39 @@ alter publication supabase_realtime add table public.portfolios;</pre>
             </button>
           </div>
         </div>
+
+        <!-- 3) 구글 시트 GOOGLEFINANCE() URL 설정 -->
+        <div class="bg-slate-950/60 p-3.5 rounded-lg border border-emerald-900/60 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-emerald-400">3단계: 구글 시트 <code class="font-mono">GOOGLEFINANCE</code> 연결</p>
+            <span id="sheetUrlStatus" class="text-xs text-slate-400">미등록</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            <code>=GOOGLEFINANCE()</code>가 입력된 <strong>구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)</strong>를 입력하세요.
+          </p>
+          <input
+            id="googleSheetUrlInput"
+            type="url"
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+            class="w-full text-xs px-3 py-2 rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <div class="flex items-center justify-between gap-2">
+            <button
+              id="copyFormulaQuickBtn"
+              type="button"
+              class="text-[11px] bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-800/70 px-2.5 py-1.5 rounded transition"
+            >
+              📋 시트용 수식 복사
+            </button>
+            <button
+              id="saveSheetUrlBtn"
+              type="button"
+              class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-1.5 rounded transition"
+            >
+              시트 주소 저장
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -173,7 +261,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
         <p class="text-xs font-medium text-slate-400">총 평가 금액 (현재가 기준)</p>
         <p id="totalEvalText" class="text-2xl font-bold text-indigo-400 mt-1">0원</p>
-        <p class="text-xs text-slate-500 mt-1">네이버 금융 현재가 연동 및 직접 수정 지원</p>
+        <p class="text-xs text-slate-500 mt-1">GOOGLEFINANCE() 시세 연동 및 직접 수정 지원</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
         <p class="text-xs font-medium text-slate-400">총 평가 손익 (수익률)</p>
@@ -194,9 +282,9 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       <div class="lg:col-span-7 space-y-6">
         <!-- 1. 주식 매수 내역 입력 폼 -->
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-          <div class="flex items-center justify-between mb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
             <h2 class="text-base font-bold text-white">➕ 주식 매수 내역 추가</h2>
-            <span class="text-xs text-emerald-400">💡 종목코드(예: 005930)나 종목명 입력 후 [시세 조회]를 누르면 현재가가 자동 입력됩니다</span>
+            <span class="text-xs text-emerald-400">💡 티커 예: <code class="font-mono">KRX:005930</code> (또는 <code class="font-mono">005930</code>), <code class="font-mono">NASDAQ:AAPL</code></span>
           </div>
           <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
@@ -228,19 +316,19 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               </datalist>
             </div>
             <div>
-              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목코드 (선택, 예: 005930)</label>
+              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">GOOGLEFINANCE 티커/종목코드</label>
               <div class="flex gap-1.5">
                 <input
                   id="stockCode"
                   type="text"
-                  placeholder="005930, 0052D0"
+                  placeholder="005930 또는 KRX:005930"
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
                   id="lookupFormPriceBtn"
                   type="button"
                   class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-2.5 py-2 rounded-lg whitespace-nowrap transition"
-                  title="네이버 금융에서 종목명과 현재가를 가져옵니다"
+                  title="연결된 구글 시트 GOOGLEFINANCE()에서 현재가를 가져옵니다"
                 >
                   시세조회
                 </button>
@@ -275,7 +363,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 type="number"
                 min="1"
                 step="any"
-                placeholder="미입력 시 네이버 시세/매수가"
+                placeholder="GOOGLEFINANCE 시세/직접입력"
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -306,24 +394,24 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div>
-              <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역 & 현재가 수익률</h2>
-              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">네이버 금융 모바일 API(<code class="text-emerald-400">m.stock.naver.com</code>)로 실시간 현재가를 가져옵니다</p>
+              <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역 & <code class="text-emerald-400">GOOGLEFINANCE</code> 수익률</h2>
+              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">구글 시트의 <code class="text-emerald-400">=GOOGLEFINANCE()</code> 계산 결과를 불러오거나 표에서 직접 수정할 수 있습니다</p>
             </div>
             <button
-              id="naverFetchPricesBtn"
+              id="googleFinanceFetchBtn"
               type="button"
               class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
             >
-              🔄 네이버 금융 현재가 일괄 업데이트
+              🔄 구글 시트 GOOGLEFINANCE 현재가 동기화
             </button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-                  <th class="py-2.5 px-2.5">섹터/종목(코드)</th>
+                  <th class="py-2.5 px-2.5">섹터/종목 (GOOGLEFINANCE 수식)</th>
                   <th class="py-2.5 px-2.5 text-right">매수단가</th>
-                  <th class="py-2.5 px-2.5 text-right">현재가 (네이버/수정)</th>
+                  <th class="py-2.5 px-2.5 text-right">현재가 (시트연동/수정)</th>
                   <th class="py-2.5 px-2.5 text-right">수량</th>
                   <th class="py-2.5 px-2.5 text-right">평가금액 (비중)</th>
                   <th class="py-2.5 px-2.5 text-right">평가손익 (수익률)</th>
@@ -372,7 +460,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
           <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm">
             <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 shadow-sm">
-              안녕하세요! 네이버 금융에서 불러온 <strong>현재가</strong>와 <strong>수익률</strong>까지 함께 분석해 맞춤형 포트폴리오 상담을 도와드립니다.
+              안녕하세요! 구글 시트의 <strong>GOOGLEFINANCE()</strong>로 불러온 현재가와 수익률을 바탕으로 맞춤형 포트폴리오 상담을 도와드립니다.
             </div>
           </div>
 
@@ -404,6 +492,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SB_URL = 'my_supabase_url_v1';
     const STORAGE_KEY_SB_KEY = 'my_supabase_anon_key_v1';
+    const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
 
     let portfolio = [];
     let supabaseClient = null;
@@ -422,6 +511,14 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     const storageNoticeText = document.getElementById('storageNoticeText');
     const toggleSqlGuideBtn = document.getElementById('toggleSqlGuideBtn');
     const sqlGuideBox = document.getElementById('sqlGuideBox');
+    const toggleSheetGuideBtn = document.getElementById('toggleSheetGuideBtn');
+    const sheetGuideBox = document.getElementById('sheetGuideBox');
+
+    const googleSheetUrlInput = document.getElementById('googleSheetUrlInput');
+    const saveSheetUrlBtn = document.getElementById('saveSheetUrlBtn');
+    const sheetUrlStatus = document.getElementById('sheetUrlStatus');
+    const copySheetFormulaBtn = document.getElementById('copySheetFormulaBtn');
+    const copyFormulaQuickBtn = document.getElementById('copyFormulaQuickBtn');
 
     const authFormArea = document.getElementById('authFormArea');
     const authEmailInput = document.getElementById('authEmailInput');
@@ -440,7 +537,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     const buyPriceInput = document.getElementById('buyPrice');
     const currentPriceInput = document.getElementById('currentPrice');
     const quantityInput = document.getElementById('quantity');
-    const naverFetchPricesBtn = document.getElementById('naverFetchPricesBtn');
+    const googleFinanceFetchBtn = document.getElementById('googleFinanceFetchBtn');
 
     const totalInvestmentText = document.getElementById('totalInvestmentText');
     const totalEvalText = document.getElementById('totalEvalText');
@@ -461,6 +558,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       sqlGuideBox.classList.toggle('hidden');
     });
 
+    toggleSheetGuideBtn.addEventListener('click', () => {
+      sheetGuideBox.classList.toggle('hidden');
+    });
+
     function formatKRW(number) {
       return Math.round(number).toLocaleString('ko-KR') + '원';
     }
@@ -475,108 +576,203 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     }
 
     /**
-     * 브라우저 환경에서 CORS 제한 없이 URL JSON을 가져오는 도우미 함수
+     * 입력된 종목코드(예: "005930", "KRX:005930", "AAPL", "NASDAQ:AAPL")를
+     * 구글 시트 GOOGLEFINANCE() 표준 티커 형식으로 변환합니다.
      */
-    async function fetchJsonWithCorsFallback(targetUrl) {
-      const proxyUrls = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-      ];
-
-      // 1) 직접 호출 시도
-      try {
-        const directRes = await fetch(targetUrl);
-        if (directRes.ok) {
-          return await directRes.json();
-        }
-      } catch (_e) {
-        // 브라우저 CORS 차단 시 프록시로 자동 전환
-      }
-
-      // 2) CORS 프록시 순차 시도
-      let lastError = null;
-      for (const pUrl of proxyUrls) {
-        try {
-          const res = await fetch(pUrl);
-          if (res.ok) {
-            return await res.json();
-          }
-        } catch (err) {
-          lastError = err;
-        }
-      }
-      throw lastError || new Error('네트워크 요청 실패');
-    }
-
-    /**
-     * 종목명(예: "삼성전자")으로 네이버 금융 종목코드(예: "005930") 자동 검색
-     */
-    async function searchStockCodeByName(queryName) {
-      if (!queryName) return null;
-      const clean = String(queryName).trim();
-      // 이미 6자리 종목코드 형태(005930, 0052D0 등)인 경우 바로 반환
-      if (/^[0-9A-Za-z]{6}$/.test(clean) && /\d/.test(clean)) {
-        return clean.toUpperCase();
-      }
-      if (/^\d{1,5}$/.test(clean)) {
-        return clean.padStart(6, '0');
-      }
-
-      try {
-        const acUrl = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(clean)}&target=stock,etf,index`;
-        const data = await fetchJsonWithCorsFallback(acUrl);
-        const items = data?.items || [];
-        if (items.length > 0 && items[0].code) {
-          return String(items[0].code).trim();
-        }
-      } catch (err) {
-        console.warn('종목코드 자동 검색 실패:', err);
-      }
-      return null;
-    }
-
-    /**
-     * 사용자 제공 NAVERPRICE 로직을 웹 브라우저용 비동기 함수로 구현
-     * 네이버 금융 모바일 API(https://m.stock.naver.com/api/stock/${code}/basic)를 호출하여
-     * { price, stockName, code } 를 반환합니다.
-     */
-    async function NAVERPRICE(stockCodeOrName) {
-      if (!stockCodeOrName) {
-        throw new Error('종목코드 또는 종목명 입력 필요');
-      }
-
-      let code = String(stockCodeOrName).trim();
-      // 앞자리 0이 누락된 6자리 미만 숫자 코드 보정
+    function toGoogleFinanceTicker(rawCode) {
+      if (!rawCode) return '';
+      let code = String(rawCode).trim().toUpperCase();
+      // 1~5자리 숫자인 경우 6자리로 0 채움 후 KRX: 부착
       if (/^\d{1,5}$/.test(code)) {
-        code = code.padStart(6, '0');
-      } else if (!/^[0-9A-Za-z]{6}$/.test(code) || !/\d/.test(code)) {
-        // 종목명(한글 등)이 들어온 경우 종목코드로 먼저 변환
-        const foundCode = await searchStockCodeByName(code);
-        if (!foundCode) {
-          throw new Error(`'${code}'의 종목코드를 찾을 수 없습니다. 6자리 종목코드를 입력해 주세요.`);
+        code = 'KRX:' + code.padStart(6, '0');
+      } else if (/^\d{6}$/.test(code)) {
+        code = 'KRX:' + code;
+      }
+      return code;
+    }
+
+    /**
+     * 개별 종목에 대한 구글 시트 수식 문자열 생성
+     * 예: =GOOGLEFINANCE("KRX:005930", "price")
+     */
+    function buildGoogleFinanceFormula(codeOrName) {
+      const ticker = toGoogleFinanceTicker(codeOrName);
+      if (!ticker) return '';
+      return `=GOOGLEFINANCE("${ticker}", "price")`;
+    }
+
+    /**
+     * 내 포트폴리오 전체 종목을 구글 시트 A1 셀에 바로 붙여넣을 수 있는 탭 구분(TSV) 수식 표로 복사
+     */
+    async function copyPortfolioGoogleFinanceTable() {
+      if (portfolio.length === 0) {
+        alert('먼저 포트폴리오에 종목을 1개 이상 추가해 주세요.');
+        return;
+      }
+      const header = ['티커(종목코드)', '종목명', '현재가(GOOGLEFINANCE)'].join('\t');
+      const uniqueMap = new Map();
+      portfolio.forEach((item) => {
+        const key = (item.code || item.name).trim();
+        if (!uniqueMap.has(key)) {
+          const ticker = toGoogleFinanceTicker(item.code || item.name);
+          const formula = `=GOOGLEFINANCE("${ticker}", "price")`;
+          uniqueMap.set(key, `${ticker}\t${item.name}\t${formula}`);
         }
-        code = foundCode;
+      });
+
+      const tsvContent = [header, ...uniqueMap.values()].join('\n');
+      try {
+        await navigator.clipboard.writeText(tsvContent);
+        alert(
+          '✅ 구글 시트용 GOOGLEFINANCE() 수식 표가 복사되었습니다!\n\n새 구글 시트(sheets.new)를 열고 A1 셀에 붙여넣기(Ctrl+V) 하시면 모든 종목의 현재가가 GOOGLEFINANCE() 함수로 자동 계산됩니다.'
+        );
+      } catch (_err) {
+        prompt('아래 내용을 복사(Ctrl+C)하여 구글 시트 A1 셀에 붙여넣으세요:', tsvContent);
+      }
+    }
+
+    copySheetFormulaBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
+    copyFormulaQuickBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
+
+    // 개별 수식 복사 함수 (테이블 내 배지 클릭 시)
+    window.copySingleFormula = async function (codeOrName) {
+      const formula = buildGoogleFinanceFormula(codeOrName);
+      try {
+        await navigator.clipboard.writeText(formula);
+        alert(`복사 완료: ${formula}\n구글 시트 셀에 바로 붙여넣으실 수 있습니다.`);
+      } catch (_e) {
+        prompt('구글 시트 수식을 복사하세요:', formula);
+      }
+    };
+
+    /**
+     * 구글 시트 URL(일반 공유 링크, 웹에 게시 CSV 링크, 또는 Apps Script 웹앱 링크)에서
+     * GOOGLEFINANCE()로 계산된 가격 데이터를 읽어옵니다.
+     */
+    function normalizeGoogleSheetCsvUrl(rawUrl) {
+      const trimmed = String(rawUrl).trim();
+      // 이미 export?format=csv 또는 pub?output=csv 또는 gviz/tq 형태인 경우 그대로 사용
+      if (
+        trimmed.includes('output=csv') ||
+        trimmed.includes('format=csv') ||
+        trimmed.includes('tqx=out:csv')
+      ) {
+        return trimmed;
+      }
+      // 일반 구글 시트 주소: https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid={GID}
+      const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) {
+        const sheetId = match[1];
+        const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
+        const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
+        return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv${gidParam}`;
+      }
+      return trimmed;
+    }
+
+    // 간단한 CSV 라인 파서
+    function parseCsvRows(csvText) {
+      return csvText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) =>
+          line
+            .split(',')
+            .map((cell) => cell.replace(/^"|"$/g, '').trim())
+        );
+    }
+
+    /**
+     * 연결된 구글 시트(또는 Apps Script)에서 GOOGLEFINANCE() 현재가 조회
+     */
+    async function fetchGoogleFinancePricesFromSheet(singleQueryTicker) {
+      const rawSheetUrl =
+        googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
+
+      if (!rawSheetUrl) {
+        sheetGuideBox.classList.remove('hidden');
+        throw new Error(
+          '먼저 상단 [3단계: 구글 시트 GOOGLEFINANCE 연결] 칸에 구글 시트 주소(또는 Apps Script URL)를 입력하고 저장해 주세요.'
+        );
       }
 
-      const url = `https://m.stock.naver.com/api/stock/${code}/basic`;
-      const data = await fetchJsonWithCorsFallback(url);
-
-      // 종목에 따라 nowPrice 또는 closePrice 필드에 현재가가 들어옵니다.
-      const priceStr = data?.nowPrice || data?.closePrice;
-      if (!priceStr) {
-        throw new Error(`'${code}' 가격 정보 없음`);
+      // 1) Google Apps Script 웹앱 URL(script.google.com)인 경우
+      if (rawSheetUrl.includes('script.google.com')) {
+        if (singleQueryTicker) {
+          const ticker = toGoogleFinanceTicker(singleQueryTicker);
+          const sep = rawSheetUrl.includes('?') ? '&' : '?';
+          const res = await fetch(`${rawSheetUrl}${sep}ticker=${encodeURIComponent(ticker)}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const num = parseFloat(String(data?.price || '').replace(/,/g, ''));
+          if (isNaN(num) || num <= 0) {
+            throw new Error(`GOOGLEFINANCE('${ticker}') 가격을 가져오지 못했습니다.`);
+          }
+          return { singlePrice: num, ticker };
+        }
       }
 
-      const price = parseFloat(String(priceStr).replace(/,/g, ''));
-      if (isNaN(price)) {
-        throw new Error(`'${code}' 가격 파싱 실패`);
+      // 2) 구글 시트 CSV / JSON 데이터 전체 읽기
+      const fetchUrl = normalizeGoogleSheetCsvUrl(rawSheetUrl);
+      const res = await fetch(fetchUrl);
+      if (!res.ok) {
+        throw new Error(
+          `구글 시트 접근 실패 (HTTP ${res.status}). 시트가 [웹에 게시] 또는 [링크가 있는 모든 사용자에게 공개] 상태인지 확인해 주세요.`
+        );
       }
 
-      return {
-        code: data?.itemCode || code,
-        stockName: data?.stockName || '',
-        price: price,
-      };
+      const contentType = res.headers.get('content-type') || '';
+      let rows = [];
+      if (contentType.includes('application/json')) {
+        const jsonData = await res.json();
+        rows = jsonData?.rows || [];
+      } else {
+        const csvText = await res.text();
+        rows = parseCsvRows(csvText);
+      }
+
+      // rows에서 [티커/종목코드, 종목명, 가격] 또는 [종목명/코드, 가격] 매핑 추출
+      const priceMap = {};
+      rows.forEach((cols) => {
+        if (!cols || cols.length < 2) return;
+        // 숫자(가격)가 들어있는 마지막 유효 컬럼 찾기
+        let priceVal = NaN;
+        for (let i = cols.length - 1; i >= 1; i--) {
+          const cleaned = String(cols[i]).replace(/[₩$,원\s]/g, '');
+          const num = parseFloat(cleaned);
+          if (!isNaN(num) && num > 0) {
+            priceVal = num;
+            break;
+          }
+        }
+        if (isNaN(priceVal)) return;
+
+        // 앞쪽 컬럼들(티커, 순수 6자리 코드, 종목명)을 모두 키로 등록
+        cols.slice(0, 2).forEach((keyCol) => {
+          const rawKey = String(keyCol || '').trim();
+          if (!rawKey) return;
+          priceMap[rawKey.toUpperCase()] = priceVal;
+          priceMap[toGoogleFinanceTicker(rawKey)] = priceVal;
+          const stripped = rawKey.toUpperCase().replace(/^KRX:|^KOSDAQ:|^KOSPI:/, '');
+          priceMap[stripped] = priceVal;
+        });
+      });
+
+      if (singleQueryTicker) {
+        const key1 = String(singleQueryTicker).trim().toUpperCase();
+        const key2 = toGoogleFinanceTicker(key1);
+        const key3 = key2.replace(/^KRX:/, '');
+        const found = priceMap[key1] ?? priceMap[key2] ?? priceMap[key3];
+        if (!found) {
+          throw new Error(
+            `구글 시트에서 '${singleQueryTicker}'의 GOOGLEFINANCE() 가격을 찾지 못했습니다. 시트에 해당 종목 수식이 있는지 확인해 주세요.`
+          );
+        }
+        return { singlePrice: found, ticker: key2 };
+      }
+
+      return { priceMap };
     }
 
     // 로컬 현재가 및 종목코드 보조 캐시
@@ -666,7 +862,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (isCloudActive && currentUser) {
         syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
-        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email}) · 네이버 금융 현재가 연동`;
+        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email}) · 구글 시트 GOOGLEFINANCE() 연동`;
         userEmailText.textContent = currentUser.email;
         authFormArea.classList.add('hidden');
         signInBtn.classList.add('hidden');
@@ -675,7 +871,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       } else {
         syncBadge.textContent = '로컬 모드 (브라우저 저장)';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
-        storageNoticeText.textContent = '네이버 금융 모바일 API로 실시간 현재가를 가져옵니다';
+        storageNoticeText.textContent = '구글 시트의 =GOOGLEFINANCE() 계산 결과를 불러오거나 표에서 직접 수정할 수 있습니다';
         userEmailText.textContent = '로그아웃 상태';
         authFormArea.classList.remove('hidden');
         signInBtn.classList.remove('hidden');
@@ -824,6 +1020,31 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     });
 
+    // 구글 시트 URL 초기 로드 및 저장
+    function initSheetUrl() {
+      const savedUrl = localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
+      if (savedUrl) {
+        googleSheetUrlInput.value = savedUrl;
+        sheetUrlStatus.textContent = '연결됨 ✅';
+        sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
+      }
+    }
+
+    saveSheetUrlBtn.addEventListener('click', () => {
+      const url = googleSheetUrlInput.value.trim();
+      if (!url) {
+        localStorage.removeItem(STORAGE_KEY_SHEET_URL);
+        sheetUrlStatus.textContent = '미등록';
+        sheetUrlStatus.className = 'text-xs text-slate-400';
+        alert('구글 시트 주소가 삭제되었습니다.');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY_SHEET_URL, url);
+      sheetUrlStatus.textContent = '연결됨 ✅';
+      sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
+      alert('구글 시트 주소가 저장되었습니다! 이제 [구글 시트 GOOGLEFINANCE 현재가 동기화] 버튼을 눌러 시세를 불러올 수 있습니다.');
+    });
+
     function initGeminiKey() {
       const savedKey = localStorage.getItem(STORAGE_KEY_API_KEY) || '';
       if (savedKey) {
@@ -848,11 +1069,11 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       alert('Gemini API 키가 브라우저에 저장되었습니다.');
     });
 
-    // 입력 폼에서 [시세조회] 버튼 클릭 시 네이버 금융에서 종목명·현재가 자동 채우기
+    // 입력 폼에서 [시세조회] 클릭 시 구글 시트 GOOGLEFINANCE() 값 조회
     lookupFormPriceBtn.addEventListener('click', async () => {
       const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
       if (!query) {
-        alert('종목코드(예: 005930) 또는 종목명(예: 삼성전자)을 먼저 입력해 주세요.');
+        alert(' 먼저 티커/종목코드(예: 005930, KRX:005930, NASDAQ:AAPL) 또는 종목명을 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
@@ -861,17 +1082,14 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       lookupFormPriceBtn.textContent = '조회중';
 
       try {
-        const result = await NAVERPRICE(query);
-        stockCodeInput.value = result.code;
-        if (result.stockName && !stockNameInput.value.trim()) {
-          stockNameInput.value = result.stockName;
-        }
-        currentPriceInput.value = result.price;
+        const result = await fetchGoogleFinancePricesFromSheet(query);
+        stockCodeInput.value = result.ticker;
+        currentPriceInput.value = result.singlePrice;
         if (!buyPriceInput.value) {
-          buyPriceInput.value = result.price;
+          buyPriceInput.value = result.singlePrice;
         }
       } catch (err) {
-        alert('네이버 시세 조회 오류: ' + err.message);
+        alert(err.message);
       } finally {
         lookupFormPriceBtn.disabled = false;
         lookupFormPriceBtn.textContent = origText;
@@ -944,15 +1162,28 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           const profitColor =
             profit > 0 ? 'text-rose-400' : profit < 0 ? 'text-sky-400' : 'text-slate-400';
 
+          const tickerForFormula = toGoogleFinanceTicker(item.code || item.name);
+          const gfFormula = `=GOOGLEFINANCE("${tickerForFormula}", "price")`;
+
           return `
             <tr class="hover:bg-slate-800/60 transition">
               <td class="py-3 px-2.5">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(item.name)}</span>
-                  ${item.code ? `<span class="text-[11px] text-emerald-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
+                  ${item.code ? `<span class="text-[11px] text-emerald-400 font-mono">(${escapeHtml(toGoogleFinanceTicker(item.code))})</span>` : ''}
                 </div>
-                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(item.date)}</div>
+                <div class="mt-1 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onclick="copySingleFormula('${escapeHtml(item.code || item.name)}')"
+                    class="text-[10px] font-mono bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-slate-800 px-1.5 py-0.5 rounded transition"
+                    title="클릭하면 이 종목의 GOOGLEFINANCE 수식을 복사합니다"
+                  >
+                    📋 ${escapeHtml(gfFormula)}
+                  </button>
+                  <span class="text-[11px] text-slate-500">${escapeHtml(item.date)}</span>
+                </div>
               </td>
               <td class="py-3 px-2.5 text-right text-slate-300">${Number(item.price).toLocaleString('ko-KR')}원</td>
               <td class="py-3 px-2.5 text-right">
@@ -1029,53 +1260,85 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       renderPortfolio();
     };
 
-    // 네이버 금융 모바일 API(NAVERPRICE)를 이용한 전체 종목 현재가 일괄 업데이트
-    naverFetchPricesBtn.addEventListener('click', async () => {
+    // 구글 시트 GOOGLEFINANCE() 현재가 일괄 동기화 버튼
+    googleFinanceFetchBtn.addEventListener('click', async () => {
       if (portfolio.length === 0) {
         alert('먼저 포트폴리오에 종목을 추가해 주세요.');
         return;
       }
 
-      const origText = naverFetchPricesBtn.textContent;
-      naverFetchPricesBtn.disabled = true;
-      naverFetchPricesBtn.textContent = '⏳ 네이버 금융 시세 조회 중...';
+      const rawSheetUrl =
+        googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
+      if (!rawSheetUrl) {
+        sheetGuideBox.classList.remove('hidden');
+        alert(
+          '먼저 상단 3단계에 구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)를 입력하고 저장해 주세요.\n\n[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기] 버튼을 누르면 시트에 붙여넣을 수식을 자동으로 만들어 드립니다!'
+        );
+        googleSheetUrlInput.focus();
+        return;
+      }
+
+      const origText = googleFinanceFetchBtn.textContent;
+      googleFinanceFetchBtn.disabled = true;
+      googleFinanceFetchBtn.textContent = '⏳ GOOGLEFINANCE 시세 동기화 중...';
 
       let successCount = 0;
       const failList = [];
 
       try {
-        for (const item of portfolio) {
-          const targetQuery = item.code || item.name;
-          try {
-            const res = await NAVERPRICE(targetQuery);
-            await window.updateCurrentPrice(item.id, res.price, res.code);
-            successCount++;
-          } catch (err) {
-            console.warn(`${item.name} 시세 조회 실패:`, err.message);
-            failList.push(`${item.name}(${err.message})`);
+        // Apps Script 웹앱인 경우 종목별 실시간 GOOGLEFINANCE 호출 지원
+        if (rawSheetUrl.includes('script.google.com')) {
+          for (const item of portfolio) {
+            const query = item.code || item.name;
+            try {
+              const res = await fetchGoogleFinancePricesFromSheet(query);
+              await window.updateCurrentPrice(item.id, res.singlePrice, res.ticker);
+              successCount++;
+            } catch (_err) {
+              failList.push(item.name);
+            }
+          }
+        } else {
+          // 구글 시트 CSV/공유 링크에서 일괄 매칭
+          const { priceMap } = await fetchGoogleFinancePricesFromSheet();
+          for (const item of portfolio) {
+            const codeKey = toGoogleFinanceTicker(item.code || '');
+            const strippedKey = codeKey.replace(/^KRX:/, '');
+            const nameKey = item.name.trim().toUpperCase();
+            const foundPrice =
+              priceMap[codeKey] ?? priceMap[strippedKey] ?? priceMap[nameKey];
+
+            if (foundPrice !== undefined && !isNaN(foundPrice) && foundPrice > 0) {
+              await window.updateCurrentPrice(item.id, foundPrice, codeKey || item.code);
+              successCount++;
+            } else {
+              failList.push(item.name);
+            }
           }
         }
 
         if (failList.length === 0) {
-          alert(`총 ${successCount}건의 현재가를 네이버 금융에서 성공적으로 업데이트했습니다!`);
+          alert(`구글 시트 GOOGLEFINANCE()에서 총 ${successCount}건의 현재가를 성공적으로 동기화했습니다!`);
         } else {
           alert(
-            `성공: ${successCount}건 / 실패: ${failList.length}건\n실패 항목: ${failList.join(', ')}`
+            `성공: ${successCount}건 / 미매칭: ${failList.length}건 (${failList.join(', ')})\n새로 추가한 종목이 있다면 [📋 시트용 수식 복사]를 눌러 구글 시트에 붙여넣어 주세요.`
           );
         }
+      } catch (err) {
+        alert('GOOGLEFINANCE 동기화 오류: ' + err.message);
       } finally {
-        naverFetchPricesBtn.disabled = false;
-        naverFetchPricesBtn.textContent = origText;
+        googleFinanceFetchBtn.disabled = false;
+        googleFinanceFetchBtn.textContent = origText;
       }
     });
 
-    // 종목 추가 (추가 시 현재가가 비어 있으면 NAVERPRICE 자동 조회 시도)
+    // 종목 추가
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = buyDateInput.value;
       const sector = sectorInput.value.trim();
-      let code = stockCodeInput.value.trim();
-      let name = stockNameInput.value.trim();
+      let code = toGoogleFinanceTicker(stockCodeInput.value.trim());
+      const name = stockNameInput.value.trim();
       const price = parseFloat(buyPriceInput.value);
       const curPriceRaw = parseFloat(currentPriceInput.value);
       const quantity = parseFloat(quantityInput.value);
@@ -1087,17 +1350,17 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       let currentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0 ? curPriceRaw : null;
 
-      // 현재가를 입력하지 않았을 경우 네이버 금융에서 자동 조회 시도
-      if (!currentPrice) {
+      // 현재가를 비워두었고 구글 시트가 연결되어 있으면 시트에서 GOOGLEFINANCE 가격 자동 조회 시도
+      if (!currentPrice && (googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL))) {
         try {
-          const naverInfo = await NAVERPRICE(code || name);
-          currentPrice = naverInfo.price;
-          if (!code && naverInfo.code) {
-            code = naverInfo.code;
-          }
+          const res = await fetchGoogleFinancePricesFromSheet(code || name);
+          currentPrice = res.singlePrice;
         } catch (_err) {
           currentPrice = price;
         }
+      }
+      if (!currentPrice) {
+        currentPrice = price;
       }
 
       if (supabaseClient && currentUser) {
@@ -1117,7 +1380,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           ])
           .select();
 
-        // 만약 아직 current_price / stock_code 컬럼을 추가하지 않은 경우 기본 컬럼만으로 재시도
         if (error && error.message && (error.message.includes('current_price') || error.message.includes('stock_code'))) {
           const retry = await supabaseClient
             .from('portfolios')
@@ -1305,6 +1567,7 @@ ${userQuestion}`;
     });
 
     initGeminiKey();
+    initSheetUrl();
     initSupabase();
   </script>
 </body>
