@@ -12,7 +12,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 구글 시트 클라우드 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 구글 시트(매매내역·포트폴리오) 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -37,11 +37,11 @@
 
   <!-- 메인 대시보드 영역 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- 구글 시트 데이터베이스 & GOOGLEFINANCE() 연동 설정 패널 -->
+    <!-- 구글 시트 데이터베이스(매매내역 + 포트폴리오 시트) & GOOGLEFINANCE() 연동 설정 패널 -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg mb-6 space-y-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div class="flex items-center gap-2 flex-wrap">
-          <h2 class="text-base font-bold text-white">☁️ 구글 시트 포트폴리오 저장소 & <code class="text-emerald-400">GOOGLEFINANCE()</code> 연동</h2>
+          <h2 class="text-base font-bold text-white">☁️ 구글 시트 저장소 (<code class="text-indigo-400">매매내역</code> · <code class="text-emerald-400">포트폴리오</code> 시트 자동 생성)</h2>
           <span id="syncBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">로컬 모드 (미연결)</span>
         </div>
         <button
@@ -49,7 +49,7 @@
           type="button"
           class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold underline self-start md:self-auto"
         >
-          📊 구글 시트 DB 연동 코드(Apps Script) 복사 & 설정 방법 보기
+          📊 구글 시트 Apps Script 코드 복사 & 설정 방법 보기
         </button>
       </div>
 
@@ -57,7 +57,7 @@
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ 구글 시트 하나로 포트폴리오 저장 + 기기 간 공유 + GOOGLEFINANCE() 자동 현재가 계산까지 한 번에 해결됩니다!
+            ✅ [매매내역] 시트에는 거래내역을 시간 역순으로 기록하고, [포트폴리오] 시트에는 티커 기준 보유수량이 0보다 큰 종목만 자동 집계합니다!
           </p>
           <button
             id="copyAppsScriptBtn"
@@ -68,18 +68,12 @@
           </button>
         </div>
         <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300 leading-relaxed">
-          <p>1. 새 구글 시트(<code>https://sheets.new</code>)를 열고 상단 메뉴 <strong>[확장 프로그램 &gt; Apps Script]</strong>를 클릭합니다.</p>
-          <p>2. 기존 코드를 모두 지우고 위 <strong>[📋 구글 시트 Apps Script 코드 복사하기]</strong> 버튼으로 복사한 코드를 붙여넣은 뒤 저장(<code>Ctrl+S</code>)합니다.</p>
-          <p>3. 우측 상단 <strong>[배포 &gt; 새 배포]</strong> 클릭 &rarr; 유형 선택(⚙️): <strong>웹 앱</strong> &rarr; 다음 사용자로 실행: <strong>나</strong> &rarr; 액세스 권한이 있는 사용자: <strong>모든 사용자</strong>로 선택 후 <strong>[배포]</strong>합니다.</p>
-          <p>4. 발급된 <strong>웹 앱 URL (<code>https://script.google.com/macros/s/.../exec</code>)</strong>을 아래 입력칸에 붙여넣고 <strong>[연결 저장]</strong>을 누르면 모든 기기에서 동일한 포트폴리오가 공유됩니다.</p>
+          <p>1. 구글 시트(<code>https://sheets.new</code>)에서 <strong>[확장 프로그램 &gt; Apps Script]</strong>를 열고 기존 코드를 지운 뒤, 위 버튼으로 복사한 코드를 붙여넣고 저장(<code>Ctrl+S</code>)합니다.</p>
+          <p>2. 우측 상단 <strong>[배포 &gt; 새 배포]</strong> (또는 기존 배포 수정 시 <strong>[배포 &gt; 배포 관리 &gt; ✏️ 수정 &gt; 버전: 새 버전]</strong>) &rarr; 유형: <strong>웹 앱</strong> &rarr; 액세스 권한: <strong>모든 사용자</strong>로 배포합니다.</p>
+          <p>3. 발급된 <strong>웹 앱 URL (<code>https://script.google.com/macros/s/.../exec</code>)</strong>을 아래 입력칸에 붙여넣고 <strong>[연결 저장]</strong>을 누르세요.</p>
         </div>
-        <pre id="appsScriptCodeBlock" class="leading-relaxed select-all bg-slate-950 p-3 rounded border border-slate-800 overflow-x-auto text-[11px] text-slate-300">function getOrInitSheet() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id', 'date', 'currency', 'sector', 'code', 'name', 'buyPrice', 'currentPrice', 'quantity']);
-  }
-  return sheet;
-}
+        <pre id="appsScriptCodeBlock" class="leading-relaxed select-all bg-slate-950 p-3 rounded border border-slate-800 overflow-x-auto text-[11px] text-slate-300">var TRADES_SHEET_NAME = '매매내역';
+var PORTFOLIO_SHEET_NAME = '포트폴리오';
 
 function toGfTicker(raw) {
   if (!raw) return '';
@@ -90,12 +84,237 @@ function toGfTicker(raw) {
   return code;
 }
 
+function getOrCreateSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tradesSheet = ss.getSheetByName(TRADES_SHEET_NAME);
+  if (!tradesSheet) {
+    tradesSheet = ss.insertSheet(TRADES_SHEET_NAME);
+  }
+  if (tradesSheet.getLastRow() === 0) {
+    tradesSheet.appendRow(['id', 'date', 'type', 'currency', 'sector', 'code', 'name', 'price', 'quantity', 'createdAt']);
+  }
+
+  var pfSheet = ss.getSheetByName(PORTFOLIO_SHEET_NAME);
+  if (!pfSheet) {
+    pfSheet = ss.insertSheet(PORTFOLIO_SHEET_NAME);
+  }
+  if (pfSheet.getLastRow() === 0) {
+    pfSheet.appendRow(['code', 'name', 'currency', 'sector', 'buyPrice', 'currentPrice', 'quantity', 'lastDate', 'manualBuyPrice', 'manualCurrentPrice']);
+  }
+  return { ss: ss, tradesSheet: tradesSheet, pfSheet: pfSheet };
+}
+
+function formatDateCell(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(val || '').slice(0, 10);
+}
+
+// 매매내역 시트를 시간의 역순(최신 거래일·기록시각이 위로 오도록) 정렬 및 포트폴리오 시트 재계산
+function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
+  var lastRow = tradesSheet.getLastRow();
+  var trades = [];
+  if (lastRow &gt; 1) {
+    var vals = tradesSheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    for (var i = 0; i &lt; vals.length; i++) {
+      var r = vals[i];
+      if (!r[0]) continue;
+      trades.push({
+        id: String(r[0]),
+        date: formatDateCell(r[1]),
+        type: String(r[2] || 'BUY').toUpperCase(),
+        currency: String(r[3] || 'KRW'),
+        sector: String(r[4] || ''),
+        code: toGfTicker(r[5]),
+        name: String(r[6] || ''),
+        price: Number(r[7]) || 0,
+        quantity: Number(r[8]) || 0,
+        createdAt: Number(r[9]) || 0
+      });
+    }
+  }
+
+  // 1) 매매내역 시트: 시간의 역순(최신순)으로 정렬하여 기록
+  trades.sort(function(a, b) {
+    if (a.date !== b.date) return a.date &lt; b.date ? 1 : -1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  if (lastRow &gt; 1) {
+    tradesSheet.getRange(2, 1, lastRow - 1, 10).clearContent();
+  }
+  if (trades.length &gt; 0) {
+    var tradeRows = trades.map(function(t) {
+      return [t.id, t.date, t.type, t.currency, t.sector, t.code, t.name, t.price, t.quantity, t.createdAt];
+    });
+    tradesSheet.getRange(2, 1, tradeRows.length, 10).setValues(tradeRows);
+  }
+
+  // 기존 포트폴리오 시트에 저장된 수동 단가/현재가 오버라이드 읽기
+  var existingOverrides = overrideMap || {};
+  var pfLastRow = pfSheet.getLastRow();
+  if (pfLastRow &gt; 1) {
+    var pfVals = pfSheet.getRange(2, 1, pfLastRow - 1, 10).getValues();
+    for (var p = 0; p &lt; pfVals.length; p++) {
+      var key = String(pfVals[p][0] || pfVals[p][1]).trim().toUpperCase();
+      if (!key) continue;
+      if (!existingOverrides[key]) existingOverrides[key] = {};
+      if (pfVals[p][8] !== '' &amp;&amp; pfVals[p][8] !== null &amp;&amp; !isNaN(Number(pfVals[p][8])) &amp;&amp; Number(pfVals[p][8]) &gt; 0) {
+        if (existingOverrides[key].manualBuyPrice === undefined) {
+          existingOverrides[key].manualBuyPrice = Number(pfVals[p][8]);
+        }
+      }
+      if (pfVals[p][9] !== '' &amp;&amp; pfVals[p][9] !== null &amp;&amp; !isNaN(Number(pfVals[p][9])) &amp;&amp; Number(pfVals[p][9]) &gt; 0) {
+        if (existingOverrides[key].manualCurrentPrice === undefined) {
+          existingOverrides[key].manualCurrentPrice = Number(pfVals[p][9]);
+        }
+      }
+    }
+  }
+
+  // 2) 티커 기준으로 과거순 계산하여 현재 보유수량 &gt; 0 인 종목만 포트폴리오 시트에 기록
+  var chrono = trades.slice().reverse();
+  var map = {};
+  for (var c = 0; c &lt; chrono.length; c++) {
+    var tr = chrono[c];
+    var tickerKey = (tr.code || tr.name).trim().toUpperCase();
+    if (!tickerKey) continue;
+    if (!map[tickerKey]) {
+      map[tickerKey] = {
+        key: tickerKey,
+        code: tr.code,
+        name: tr.name,
+        currency: tr.currency || 'KRW',
+        sector: tr.sector || '',
+        avgBuyPrice: 0,
+        quantity: 0,
+        lastDate: tr.date
+      };
+    }
+    var entry = map[tickerKey];
+    if (tr.name) entry.name = tr.name;
+    if (tr.sector) entry.sector = tr.sector;
+    if (tr.currency) entry.currency = tr.currency;
+    if (tr.code) entry.code = tr.code;
+    if (tr.date &gt;= entry.lastDate) entry.lastDate = tr.date;
+
+    if (tr.type === 'SELL' || tr.type === '매도') {
+      entry.quantity -= tr.quantity;
+      if (entry.quantity &lt;= 0) {
+        entry.quantity = 0;
+        entry.avgBuyPrice = 0;
+      }
+    } else {
+      var prevCost = entry.quantity * entry.avgBuyPrice;
+      var newCost = tr.quantity * tr.price;
+      entry.quantity += tr.quantity;
+      entry.avgBuyPrice = entry.quantity &gt; 0 ? (prevCost + newCost) / entry.quantity : tr.price;
+    }
+  }
+
+  // 보유수량이 0보다 큰 종목 필터링
+  var activeHoldings = Object.keys(map)
+    .map(function(k) { return map[k]; })
+    .filter(function(item) { return item.quantity &gt; 0.000001; });
+
+  if (pfLastRow &gt; 1) {
+    pfSheet.getRange(2, 1, pfLastRow - 1, 10).clearContent();
+  }
+
+  for (var h = 0; h &lt; activeHoldings.length; h++) {
+    var hold = activeHoldings[h];
+    var rowNum = h + 2;
+    var ov = existingOverrides[hold.key] || {};
+    var finalBuyPrice = (ov.manualBuyPrice !== undefined &amp;&amp; ov.manualBuyPrice !== null &amp;&amp; ov.manualBuyPrice &gt; 0)
+      ? Number(ov.manualBuyPrice)
+      : hold.avgBuyPrice;
+    var manualCur = (ov.manualCurrentPrice !== undefined &amp;&amp; ov.manualCurrentPrice !== null &amp;&amp; ov.manualCurrentPrice &gt; 0)
+      ? Number(ov.manualCurrentPrice)
+      : '';
+
+    pfSheet.getRange(rowNum, 1, 1, 10).setValues([[
+      hold.code,
+      hold.name,
+      hold.currency,
+      hold.sector,
+      finalBuyPrice,
+      manualCur !== '' ? manualCur : finalBuyPrice,
+      hold.quantity,
+      hold.lastDate,
+      ov.manualBuyPrice || '',
+      ov.manualCurrentPrice || ''
+    ]]);
+
+    if (hold.code &amp;&amp; manualCur === '') {
+      pfSheet.getRange(rowNum, 6).setFormula('=IFERROR(GOOGLEFINANCE("' + hold.code + '", "price"), E' + rowNum + ')');
+    }
+  }
+
+  SpreadsheetApp.flush();
+}
+
+function readState(tradesSheet, pfSheet) {
+  SpreadsheetApp.flush();
+  var trades = [];
+  var tLast = tradesSheet.getLastRow();
+  if (tLast &gt; 1) {
+    var tVals = tradesSheet.getRange(2, 1, tLast - 1, 10).getValues();
+    for (var i = 0; i &lt; tVals.length; i++) {
+      var r = tVals[i];
+      if (!r[0]) continue;
+      trades.push({
+        id: String(r[0]),
+        date: formatDateCell(r[1]),
+        type: String(r[2] || 'BUY').toUpperCase(),
+        currency: String(r[3] || 'KRW'),
+        sector: String(r[4] || ''),
+        code: String(r[5] || ''),
+        name: String(r[6] || ''),
+        price: Number(r[7]) || 0,
+        quantity: Number(r[8]) || 0,
+        createdAt: Number(r[9]) || 0
+      });
+    }
+  }
+
+  var items = [];
+  var pLast = pfSheet.getLastRow();
+  if (pLast &gt; 1) {
+    var pVals = pfSheet.getRange(2, 1, pLast - 1, 10).getValues();
+    for (var j = 0; j &lt; pVals.length; j++) {
+      var p = pVals[j];
+      var code = String(p[0] || '');
+      var name = String(p[1] || '');
+      var qty = Number(p[6]) || 0;
+      if ((!code &amp;&amp; !name) || qty &lt;= 0) continue;
+      var key = (code || name).trim().toUpperCase();
+      var buyPrice = Number(p[4]) || 0;
+      var curPrice = Number(p[5]) || buyPrice;
+      items.push({
+        id: key,
+        code: code,
+        name: name,
+        currency: String(p[2] || 'KRW'),
+        sector: String(p[3] || ''),
+        price: buyPrice,
+        currentPrice: curPrice,
+        quantity: qty,
+        date: formatDateCell(p[7]),
+        manualBuyPrice: p[8] !== '' ? Number(p[8]) : null,
+        manualCurrentPrice: p[9] !== '' ? Number(p[9]) : null
+      });
+    }
+  }
+  return { ok: true, trades: trades, items: items };
+}
+
 function doGet(e) {
-  var sheet = getOrInitSheet();
-  var ticker = (e && e.parameter && e.parameter.ticker) ? e.parameter.ticker.trim() : '';
+  var sheets = getOrCreateSheets();
+  var ticker = (e &amp;&amp; e.parameter &amp;&amp; e.parameter.ticker) ? e.parameter.ticker.trim() : '';
   if (ticker) {
     var gfTicker = toGfTicker(ticker);
-    var cell = sheet.getRange('Z1');
+    var cell = sheets.pfSheet.getRange('Z1');
     cell.setFormula('=IFERROR(GOOGLEFINANCE("' + gfTicker + '", "price"), "")');
     SpreadsheetApp.flush();
     var val = Number(cell.getValue());
@@ -104,31 +323,7 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  SpreadsheetApp.flush();
-  var values = sheet.getDataRange().getValues();
-  var items = [];
-  for (var i = 1; i &lt; values.length; i++) {
-    var r = values[i];
-    if (!r[0]) continue;
-    var rawDate = r[1];
-    var dateStr = (rawDate instanceof Date)
-      ? Utilities.formatDate(rawDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
-      : String(rawDate).slice(0, 10);
-    var buyPrice = Number(r[6]) || 0;
-    var curPrice = Number(r[7]) || buyPrice;
-    items.push({
-      id: String(r[0]),
-      date: dateStr,
-      currency: String(r[2] || 'KRW'),
-      sector: String(r[3] || ''),
-      code: String(r[4] || ''),
-      name: String(r[5] || ''),
-      price: buyPrice,
-      currentPrice: curPrice,
-      quantity: Number(r[8]) || 0
-    });
-  }
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, items: items }))
+  return ContentService.createTextOutput(JSON.stringify(readState(sheets.tradesSheet, sheets.pfSheet)))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -136,86 +331,100 @@ function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    var sheet = getOrInitSheet();
+    var sheets = getOrCreateSheets();
+    var tradesSheet = sheets.tradesSheet;
+    var pfSheet = sheets.pfSheet;
     var body = JSON.parse(e.postData.contents);
     var action = body.action;
 
-    if (action === 'add') {
-      var it = body.item;
-      var rowNum = sheet.getLastRow() + 1;
-      var gfTicker = toGfTicker(it.code);
-      sheet.appendRow([
-        String(it.id),
-        String(it.date),
-        String(it.currency || 'KRW'),
-        String(it.sector || ''),
-        gfTicker || String(it.code || ''),
-        String(it.name || ''),
-        Number(it.price) || 0,
-        Number(it.currentPrice) || Number(it.price) || 0,
-        Number(it.quantity) || 0
+    if (action === 'addTrade') {
+      var tr = body.trade;
+      var gfTicker = toGfTicker(tr.code);
+      tradesSheet.appendRow([
+        String(tr.id),
+        String(tr.date),
+        String(tr.type || 'BUY').toUpperCase(),
+        String(tr.currency || 'KRW'),
+        String(tr.sector || ''),
+        gfTicker || String(tr.code || ''),
+        String(tr.name || ''),
+        Number(tr.price) || 0,
+        Number(tr.quantity) || 0,
+        Number(tr.createdAt) || Date.now()
       ]);
-      if (gfTicker && !it.manualCurrentPrice) {
-        sheet.getRange(rowNum, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + gfTicker + '", "price"), G' + rowNum + ')');
-      }
-      SpreadsheetApp.flush();
-    } else if (action === 'update') {
-      var targetId = String(body.id);
-      var rows = sheet.getDataRange().getValues();
-      for (var i = 1; i &lt; rows.length; i++) {
-        if (String(rows[i][0]) === targetId) {
-          var rIdx = i + 1;
-          if (body.price !== undefined) sheet.getRange(rIdx, 7).setValue(Number(body.price));
-          if (body.currentPrice !== undefined) sheet.getRange(rIdx, 8).setValue(Number(body.currentPrice));
-          if (body.restoreFormula && rows[i][4]) {
-            var tk = toGfTicker(rows[i][4]);
-            sheet.getRange(rIdx, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + tk + '", "price"), G' + rIdx + ')');
-          }
-          if (body.quantity !== undefined) sheet.getRange(rIdx, 9).setValue(Number(body.quantity));
-          break;
+      var ovMap = {};
+      var key = (gfTicker || tr.name || '').trim().toUpperCase();
+      if (key) {
+        // 신규 매매가 발생하면 평균매수단가를 매매내역 기준으로 재계산하도록 수동 매수가 오버라이드 해제
+        ovMap[key] = { manualBuyPrice: null };
+        if (tr.manualCurrentPrice &amp;&amp; Number(tr.currentPrice) &gt; 0) {
+          ovMap[key].manualCurrentPrice = Number(tr.currentPrice);
         }
       }
-      SpreadsheetApp.flush();
-    } else if (action === 'delete') {
+      rebuildPortfolioSheet(tradesSheet, pfSheet, ovMap);
+    } else if (action === 'deleteTrade') {
       var delId = String(body.id);
-      var allRows = sheet.getDataRange().getValues();
-      for (var j = allRows.length - 1; j &gt;= 1; j--) {
-        if (String(allRows[j][0]) === delId) {
-          sheet.deleteRow(j + 1);
-          break;
+      var tLast = tradesSheet.getLastRow();
+      if (tLast &gt; 1) {
+        var tVals = tradesSheet.getRange(2, 1, tLast - 1, 1).getValues();
+        for (var i = tVals.length - 1; i &gt;= 0; i--) {
+          if (String(tVals[i][0]) === delId) {
+            tradesSheet.deleteRow(i + 2);
+            break;
+          }
         }
       }
-      SpreadsheetApp.flush();
-    } else if (action === 'syncAll' && Array.isArray(body.items)) {
-      var existing = sheet.getDataRange().getValues();
-      var idSet = {};
-      for (var k = 1; k &lt; existing.length; k++) {
-        idSet[String(existing[k][0])] = true;
-      }
-      body.items.forEach(function(item) {
-        if (!idSet[String(item.id)]) {
-          var nextRow = sheet.getLastRow() + 1;
-          var tk = toGfTicker(item.code);
-          sheet.appendRow([
-            String(item.id),
-            String(item.date),
-            String(item.currency || 'KRW'),
-            String(item.sector || ''),
-            tk || String(item.code || ''),
-            String(item.name || ''),
-            Number(item.price) || 0,
-            Number(item.currentPrice) || Number(item.price) || 0,
-            Number(item.quantity) || 0
-          ]);
-          if (tk) {
-            sheet.getRange(nextRow, 8).setFormula('=IFERROR(GOOGLEFINANCE("' + tk + '", "price"), G' + nextRow + ')');
+      rebuildPortfolioSheet(tradesSheet, pfSheet);
+    } else if (action === 'updatePortfolio') {
+      var targetKey = String(body.id || '').trim().toUpperCase();
+      var ov = {};
+      ov[targetKey] = {};
+      if (body.price !== undefined) ov[targetKey].manualBuyPrice = Number(body.price);
+      if (body.currentPrice !== undefined) ov[targetKey].manualCurrentPrice = Number(body.currentPrice);
+      rebuildPortfolioSheet(tradesSheet, pfSheet, ov);
+    } else if (action === 'deleteHolding') {
+      var delKey = String(body.id || '').trim().toUpperCase();
+      var lastR = tradesSheet.getLastRow();
+      if (lastR &gt; 1) {
+        var allT = tradesSheet.getRange(2, 1, lastR - 1, 7).getValues();
+        for (var d = allT.length - 1; d &gt;= 0; d--) {
+          var rowKey = (toGfTicker(allT[d][5]) || String(allT[d][6] || '')).trim().toUpperCase();
+          if (rowKey === delKey) {
+            tradesSheet.deleteRow(d + 2);
           }
+        }
+      }
+      rebuildPortfolioSheet(tradesSheet, pfSheet);
+    } else if (action === 'syncAll' &amp;&amp; Array.isArray(body.trades)) {
+      var existingLast = tradesSheet.getLastRow();
+      var idSet = {};
+      if (existingLast &gt; 1) {
+        var exIds = tradesSheet.getRange(2, 1, existingLast - 1, 1).getValues();
+        for (var k = 0; k &lt; exIds.length; k++) {
+          idSet[String(exIds[k][0])] = true;
+        }
+      }
+      body.trades.forEach(function(tr) {
+        if (!idSet[String(tr.id)]) {
+          var tk = toGfTicker(tr.code);
+          tradesSheet.appendRow([
+            String(tr.id),
+            String(tr.date),
+            String(tr.type || 'BUY').toUpperCase(),
+            String(tr.currency || 'KRW'),
+            String(tr.sector || ''),
+            tk || String(tr.code || ''),
+            String(tr.name || ''),
+            Number(tr.price) || 0,
+            Number(tr.quantity) || 0,
+            Number(tr.createdAt) || Date.now()
+          ]);
         }
       });
-      SpreadsheetApp.flush();
+      rebuildPortfolioSheet(tradesSheet, pfSheet);
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+    return ContentService.createTextOutput(JSON.stringify(readState(tradesSheet, pfSheet)))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
@@ -247,7 +456,7 @@ function doPost(e) {
             id="uploadLocalToSheetBtn"
             type="button"
             class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3 py-2 rounded transition whitespace-nowrap"
-            title="현재 브라우저에 있는 포트폴리오를 구글 시트로 내보냅니다"
+            title="현재 브라우저에 있는 매수/매도 내역을 구글 시트로 내보냅니다"
           >
             ⬆️ 기존 데이터 시트로 업로드
           </button>
@@ -262,7 +471,7 @@ function doPost(e) {
         <div id="totalInvestmentText" class="text-lg font-bold text-white mt-1 space-y-0.5">
           <div>KRW 0</div>
         </div>
-        <p id="totalCountText" class="text-xs text-slate-400 mt-1">보유 0종목 (0건)</p>
+        <p id="totalCountText" class="text-xs text-slate-400 mt-1">보유 0종목</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
         <p class="text-xs font-medium text-slate-400">총 평가 금액 (KRW / USD)</p>
@@ -281,24 +490,24 @@ function doPost(e) {
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
         <p class="text-xs font-medium text-slate-400">섹터별 비중 요약</p>
         <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-300">
-          <span class="text-slate-500">등록된 내역이 없습니다.</span>
+          <span class="text-slate-500">보유 중인 종목이 없습니다.</span>
         </div>
       </div>
     </section>
 
-    <!-- 중단 영역: 좌측(매매내역) & 우측(AI 조언(포트폴리오)) 동일 높이 배치 -->
+    <!-- 중단 영역: 좌측(매수/매도 내역) & 우측(AI 조언(포트폴리오)) 동일 높이 배치 -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-6">
-      <!-- 좌측: 매매내역 (6칸, h-full로 우측과 하단 라인 동일하게 맞춤) -->
+      <!-- 좌측: 매수/매도 내역 (6칸, h-full로 우측과 하단 라인 동일하게 맞춤) -->
       <div class="lg:col-span-6 flex">
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg flex flex-col justify-between w-full h-full">
           <div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
-              <h2 class="text-base font-bold text-white">➕ 매매내역</h2>
-              <span class="text-xs text-emerald-400">💡 한국주식(<code class="font-mono">005930</code>)은 <strong>KRW</strong>, 미국주식(<code class="font-mono">AAPL</code>)은 <strong>USD</strong> 자동 구분</span>
+              <h2 class="text-base font-bold text-white">➕ 매수/매도 내역</h2>
+              <span class="text-xs text-emerald-400">💡 티커 기준으로 보유수량(&gt;0)이 자동 합산되어 포트폴리오에 반영됩니다</span>
             </div>
             <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
+                <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">거래일자</label>
                 <input
                   id="buyDate"
                   type="date"
@@ -306,15 +515,27 @@ function doPost(e) {
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <div>
-                <label for="marketCurrency" class="block text-xs font-medium text-slate-400 mb-1">시장 / 통화</label>
-                <select
-                  id="marketCurrency"
-                  class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="KRW">한국주식 (KRW)</option>
-                  <option value="USD">미국주식 (USD)</option>
-                </select>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label for="tradeType" class="block text-xs font-medium text-slate-400 mb-1">거래구분</label>
+                  <select
+                    id="tradeType"
+                    class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-rose-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="BUY">매수 (BUY)</option>
+                    <option value="SELL">매도 (SELL)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="marketCurrency" class="block text-xs font-medium text-slate-400 mb-1">시장 / 통화</label>
+                  <select
+                    id="marketCurrency"
+                    class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="KRW">KRW</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label for="sector" class="block text-xs font-medium text-slate-400 mb-1">분야 / 섹터</label>
@@ -342,6 +563,7 @@ function doPost(e) {
                     id="stockCode"
                     type="text"
                     placeholder="005930, AAPL"
+                    required
                     class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button
@@ -365,7 +587,7 @@ function doPost(e) {
                 />
               </div>
               <div>
-                <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
+                <label id="buyPriceLabel" for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
                 <input
                   id="buyPrice"
                   type="number"
@@ -388,7 +610,7 @@ function doPost(e) {
                 />
               </div>
               <div>
-                <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량</label>
+                <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">거래수량 (주)</label>
                 <input
                   id="quantity"
                   type="number"
@@ -405,7 +627,7 @@ function doPost(e) {
                   type="submit"
                   class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2.5 px-6 rounded-lg transition shadow-sm"
                 >
-                  포트폴리오에 추가
+                  매수/매도 내역 기록하기
                 </button>
               </div>
             </form>
@@ -413,7 +635,7 @@ function doPost(e) {
         </section>
       </div>
 
-      <!-- 우측: AI 조언(포트폴리오) (6칸, 좌측 매매내역과 동일한 높이로 하단 정렬) -->
+      <!-- 우측: AI 조언(포트폴리오) (6칸, 좌측 매수/매도 내역과 동일한 높이로 하단 정렬) -->
       <div class="lg:col-span-6 flex">
         <section class="bg-slate-900 rounded-xl border border-slate-800 shadow-lg flex flex-col w-full h-[420px] lg:h-full">
           <div class="p-4 border-b border-slate-800 flex items-center justify-between">
@@ -473,12 +695,12 @@ function doPost(e) {
       </div>
     </div>
 
-    <!-- 하단 영역: 포트폴리오 테이블 (전체 가로폭 100% 확장) -->
-    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
+    <!-- 하단 1: 포트폴리오 테이블 (티커 기준 보유수량 > 0 인 종목만 표시, 가로폭 100%) -->
+    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h2 class="text-base font-bold text-white">📋 포트폴리오</h2>
-          <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">매수단가와 현재가를 표에서 직접 수정하면 구글 시트에도 즉시 반영됩니다</p>
+          <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">매매내역 시트를 기준으로 티커별 현재 보유수량이 0보다 큰 종목만 표시됩니다</p>
         </div>
         <button
           id="googleFinanceFetchBtn"
@@ -506,13 +728,44 @@ function doPost(e) {
         </table>
       </div>
     </section>
+
+    <!-- 하단 2: 매매내역 시트 기록 테이블 (시간의 역순 기록) -->
+    <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-white">🕒 매매내역 (시간 역순 기록)</h2>
+          <p class="text-xs text-slate-400 mt-0.5">구글 시트의 <code class="text-indigo-400">매매내역</code> 시트와 동일하게 최신 거래내역이 맨 위에 기록됩니다</p>
+        </div>
+        <span id="tradeCountBadge" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium self-start sm:self-auto">총 0건</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
+              <th class="py-3 px-4">거래일자</th>
+              <th class="py-3 px-4 text-center">구분</th>
+              <th class="py-3 px-4">섹터/종목 (티커)</th>
+              <th class="py-3 px-4 text-center">통화</th>
+              <th class="py-3 px-4 text-right">거래단가 (KRW/USD)</th>
+              <th class="py-3 px-4 text-right">거래수량 (주)</th>
+              <th class="py-3 px-4 text-right">거래금액 (KRW/USD)</th>
+              <th class="py-3 px-4 text-center">관리</th>
+            </tr>
+          </thead>
+          <tbody id="tradesTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script>
+    const STORAGE_KEY_TRADES = 'my_stock_trades_v2';
     const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
+    const STORAGE_KEY_OVERRIDES = 'my_stock_overrides_v2';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
 
+    let trades = [];
     let portfolio = [];
 
     // DOM 참조
@@ -535,11 +788,13 @@ function doPost(e) {
     const stockForm = document.getElementById('stockForm');
     const submitStockBtn = document.getElementById('submitStockBtn');
     const buyDateInput = document.getElementById('buyDate');
+    const tradeTypeInput = document.getElementById('tradeType');
     const marketCurrencyInput = document.getElementById('marketCurrency');
     const sectorInput = document.getElementById('sector');
     const stockCodeInput = document.getElementById('stockCode');
     const lookupFormPriceBtn = document.getElementById('lookupFormPriceBtn');
     const stockNameInput = document.getElementById('stockName');
+    const buyPriceLabel = document.getElementById('buyPriceLabel');
     const buyPriceInput = document.getElementById('buyPrice');
     const currentPriceInput = document.getElementById('currentPrice');
     const quantityInput = document.getElementById('quantity');
@@ -551,6 +806,8 @@ function doPost(e) {
     const totalCountText = document.getElementById('totalCountText');
     const sectorSummaryBox = document.getElementById('sectorSummaryBox');
     const portfolioTableBody = document.getElementById('portfolioTableBody');
+    const tradesTableBody = document.getElementById('tradesTableBody');
+    const tradeCountBadge = document.getElementById('tradeCountBadge');
 
     const chatMessages = document.getElementById('chatMessages');
     const chatForm = document.getElementById('chatForm');
@@ -559,6 +816,18 @@ function doPost(e) {
     const quickPromptBtns = document.querySelectorAll('.quick-prompt-btn');
 
     buyDateInput.value = new Date().toISOString().split('T')[0];
+
+    tradeTypeInput.addEventListener('change', () => {
+      if (tradeTypeInput.value === 'SELL') {
+        tradeTypeInput.className =
+          'w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-sky-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500';
+        buyPriceLabel.textContent = '매도단가 (KRW/USD)';
+      } else {
+        tradeTypeInput.className =
+          'w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-rose-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500';
+        buyPriceLabel.textContent = '매수단가 (KRW/USD)';
+      }
+    });
 
     toggleSheetGuideBtn.addEventListener('click', () => {
       sheetGuideBox.classList.toggle('hidden');
@@ -581,6 +850,14 @@ function doPost(e) {
         marketCurrencyInput.value = 'USD';
       } else if (val.startsWith('KRX:') || val.startsWith('KOSDAQ:') || /^\d/.test(val)) {
         marketCurrencyInput.value = 'KRW';
+      }
+
+      // 기존에 보유 중인 티커를 입력하면 종목명·섹터를 자동으로 채워줌
+      const tickerKey = toGoogleFinanceTicker(val);
+      const found = portfolio.find((p) => p.code === tickerKey || p.id === tickerKey);
+      if (found) {
+        if (!stockNameInput.value) stockNameInput.value = found.name;
+        if (!sectorInput.value) sectorInput.value = found.sector;
       }
     });
 
@@ -636,58 +913,162 @@ function doPost(e) {
       return (googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '').trim();
     }
 
+    function getLocalOverrides() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_OVERRIDES) || '{}');
+      } catch (_e) {
+        return {};
+      }
+    }
+
+    function setLocalOverride(tickerKey, field, value) {
+      const key = String(tickerKey || '').trim().toUpperCase();
+      if (!key) return;
+      const map = getLocalOverrides();
+      if (!map[key]) map[key] = {};
+      if (value === null) {
+        delete map[key][field];
+      } else {
+        map[key][field] = Number(value);
+      }
+      localStorage.setItem(STORAGE_KEY_OVERRIDES, JSON.stringify(map));
+    }
+
     function updateSheetSyncBadge(isConnected) {
       if (isConnected) {
         syncBadge.textContent = '구글 시트 동기화 켜짐 🟢';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
         sheetUrlStatus.textContent = '연결됨 ✅';
         sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
-        storageNoticeText.textContent = '구글 시트와 실시간 공유 중 · 매수단가/현재가 수정 시 시트에 자동 반영됩니다';
+        storageNoticeText.textContent = '매매내역 시트 기준 티커별 보유수량이 0보다 큰 종목만 자동 집계됩니다 (구글 시트 실시간 공유 중)';
       } else {
         syncBadge.textContent = '로컬 모드 (브라우저 저장)';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
         sheetUrlStatus.textContent = '미등록';
         sheetUrlStatus.className = 'text-xs text-slate-400';
-        storageNoticeText.textContent = '상단에 구글 시트 웹 앱 URL을 연결하면 다른 기기와 포트폴리오가 자동 공유됩니다';
+        storageNoticeText.textContent = '매매내역을 기준으로 티커별 현재 보유수량이 0보다 큰 종목만 표시됩니다';
       }
     }
 
-    function loadLocalPortfolio() {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
-        const list = saved ? JSON.parse(saved) : [];
-        portfolio = list.map((item) => {
-          const code = item.code || '';
-          const currency = detectCurrency(code, item.currency);
-          const buyPrice = Number(item.price) || 0;
-          const curPrice =
-            item.currentPrice !== undefined && item.currentPrice !== null
-              ? Number(item.currentPrice)
-              : buyPrice;
-          return {
-            ...item,
-            id: String(item.id),
+    // 매매내역(trades)을 시간의 역순으로 정렬하고, 티커 기준으로 보유수량 > 0 인 종목만 포트폴리오로 집계
+    function rebuildLocalPortfolioFromTrades() {
+      // 1) 매매내역 시간 역순 정렬 (최신 일자, 최신 기록시각 우선)
+      trades.sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+      });
+
+      // 2) 과거순으로 순회하며 티커별 평균매수단가 및 잔여 보유수량 계산
+      const chronological = [...trades].reverse();
+      const map = {};
+
+      chronological.forEach((tr) => {
+        const code = toGoogleFinanceTicker(tr.code || '');
+        const key = (code || tr.name || '').trim().toUpperCase();
+        if (!key) return;
+
+        if (!map[key]) {
+          map[key] = {
+            id: key,
             code,
-            currency,
-            price: buyPrice,
-            currentPrice: curPrice,
-            quantity: Number(item.quantity) || 0,
+            name: tr.name || code,
+            currency: detectCurrency(code, tr.currency),
+            sector: tr.sector || '',
+            avgBuyPrice: 0,
+            currentPrice: Number(tr.currentPrice) || Number(tr.price) || 0,
+            quantity: 0,
+            date: tr.date || '',
+          };
+        }
+
+        const entry = map[key];
+        if (tr.name) entry.name = tr.name;
+        if (tr.sector) entry.sector = tr.sector;
+        if (tr.currency) entry.currency = detectCurrency(code, tr.currency);
+        if (code) entry.code = code;
+        if (tr.date >= entry.date) entry.date = tr.date;
+
+        const qty = Number(tr.quantity) || 0;
+        const price = Number(tr.price) || 0;
+
+        if (tr.type === 'SELL' || tr.type === '매도') {
+          entry.quantity -= qty;
+          if (entry.quantity <= 0) {
+            entry.quantity = 0;
+            entry.avgBuyPrice = 0;
+          }
+        } else {
+          const prevCost = entry.quantity * entry.avgBuyPrice;
+          const newCost = qty * price;
+          entry.quantity += qty;
+          entry.avgBuyPrice = entry.quantity > 0 ? (prevCost + newCost) / entry.quantity : price;
+          entry.currentPrice = Number(tr.currentPrice) || price;
+        }
+      });
+
+      const overrides = getLocalOverrides();
+      portfolio = Object.values(map)
+        .filter((item) => item.quantity > 0.000001)
+        .map((item) => {
+          const ov = overrides[item.id] || {};
+          const finalBuyPrice =
+            ov.manualBuyPrice !== undefined && ov.manualBuyPrice > 0
+              ? Number(ov.manualBuyPrice)
+              : item.avgBuyPrice;
+          const finalCurPrice =
+            ov.manualCurrentPrice !== undefined && ov.manualCurrentPrice > 0
+              ? Number(ov.manualCurrentPrice)
+              : item.currentPrice || finalBuyPrice;
+          return {
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            currency: item.currency,
+            sector: item.sector,
+            price: finalBuyPrice,
+            currentPrice: finalCurPrice,
+            quantity: Number(item.quantity.toFixed(6)),
+            date: item.date,
           };
         });
-      } catch (_err) {
-        portfolio = [];
-      }
-      renderPortfolio();
+
+      localStorage.setItem(STORAGE_KEY_TRADES, JSON.stringify(trades));
+      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+      renderAll();
     }
 
-    function saveLocalPortfolio() {
-      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+    function loadLocalState() {
+      try {
+        const savedTrades = localStorage.getItem(STORAGE_KEY_TRADES);
+        if (savedTrades) {
+          trades = JSON.parse(savedTrades) || [];
+        } else {
+          // 이전 버전 포트폴리오 데이터가 있으면 초기 매수 내역으로 자동 마이그레이션
+          const legacyPf = JSON.parse(localStorage.getItem(STORAGE_KEY_PORTFOLIO) || '[]');
+          trades = legacyPf.map((item, idx) => ({
+            id: String(item.id || Date.now() + idx),
+            date: item.date || new Date().toISOString().split('T')[0],
+            type: 'BUY',
+            currency: detectCurrency(item.code, item.currency),
+            sector: item.sector || '기타',
+            code: toGoogleFinanceTicker(item.code || ''),
+            name: item.name || '',
+            price: Number(item.price) || 0,
+            currentPrice: Number(item.currentPrice) || Number(item.price) || 0,
+            quantity: Number(item.quantity) || 0,
+            createdAt: Date.now() - idx * 1000,
+          }));
+        }
+      } catch (_err) {
+        trades = [];
+      }
+      rebuildLocalPortfolioFromTrades();
     }
 
     // 구글 시트(Apps Script)에 POST 요청 전송 (text/plain 사용으로 CORS 프리플라이트 방지)
     async function postToGoogleSheet(payload) {
       const url = getSheetWebAppUrl();
-      if (!url || !url.includes('script.google.com')) return false;
+      if (!url || !url.includes('script.google.com')) return null;
 
       const res = await fetch(url, {
         method: 'POST',
@@ -699,15 +1080,69 @@ function doPost(e) {
       if (!res.ok) {
         throw new Error(`구글 시트 저장 실패 (HTTP ${res.status})`);
       }
-      return true;
+      return await res.json();
     }
 
-    // 구글 시트에서 전체 포트폴리오 목록 및 GOOGLEFINANCE() 현재가 불러오기
+    function applyRemoteState(data) {
+      if (Array.isArray(data?.trades)) {
+        trades = data.trades.map((tr) => ({
+          id: String(tr.id),
+          date: tr.date || '',
+          type: String(tr.type || 'BUY').toUpperCase(),
+          currency: detectCurrency(tr.code, tr.currency),
+          sector: tr.sector || '',
+          code: toGoogleFinanceTicker(tr.code || ''),
+          name: tr.name || '',
+          price: Number(tr.price) || 0,
+          quantity: Number(tr.quantity) || 0,
+          createdAt: Number(tr.createdAt) || 0,
+        }));
+        localStorage.setItem(STORAGE_KEY_TRADES, JSON.stringify(trades));
+      }
+
+      if (Array.isArray(data?.items)) {
+        portfolio = data.items
+          .filter((item) => Number(item.quantity) > 0)
+          .map((item) => {
+            const code = toGoogleFinanceTicker(item.code || '');
+            const key = (code || item.name || '').trim().toUpperCase();
+            const currency = detectCurrency(code, item.currency);
+            const buyPrice = Number(item.price) || 0;
+            const curPrice =
+              item.currentPrice !== undefined && item.currentPrice !== null && Number(item.currentPrice) > 0
+                ? Number(item.currentPrice)
+                : buyPrice;
+            if (curPrice > 0) {
+              setLocalOverride(key, 'manualCurrentPrice', curPrice);
+            }
+            if (item.manualBuyPrice && Number(item.manualBuyPrice) > 0) {
+              setLocalOverride(key, 'manualBuyPrice', Number(item.manualBuyPrice));
+            }
+            return {
+              id: key,
+              code,
+              name: item.name || code,
+              currency,
+              sector: item.sector || '',
+              price: buyPrice,
+              currentPrice: curPrice,
+              quantity: Number(item.quantity) || 0,
+              date: item.date || '',
+            };
+          });
+        localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+      } else {
+        rebuildLocalPortfolioFromTrades();
+      }
+      renderAll();
+    }
+
+    // 구글 시트에서 매매내역 및 포트폴리오(보유수량 > 0) 불러오기
     async function loadPortfolioFromGoogleSheet(showAlertOnSuccess = false) {
       const url = getSheetWebAppUrl();
       if (!url) {
         updateSheetSyncBadge(false);
-        loadLocalPortfolio();
+        loadLocalState();
         return;
       }
 
@@ -723,43 +1158,24 @@ function doPost(e) {
           throw new Error(`HTTP ${res.status}`);
         }
         const data = await res.json();
-        if (Array.isArray(data?.items)) {
-          // 시트가 비어있는데 로컬에 기존 데이터가 있다면 시트로 자동 업로드
-          if (data.items.length === 0 && portfolio.length > 0) {
-            await postToGoogleSheet({ action: 'syncAll', items: portfolio });
-          } else {
-            portfolio = data.items.map((item) => {
-              const code = item.code || '';
-              const currency = detectCurrency(code, item.currency);
-              const buyPrice = Number(item.price) || 0;
-              const curPrice =
-                item.currentPrice !== undefined && item.currentPrice !== null && Number(item.currentPrice) > 0
-                  ? Number(item.currentPrice)
-                  : buyPrice;
-              return {
-                id: String(item.id),
-                date: item.date || '',
-                sector: item.sector || '',
-                code,
-                currency,
-                name: item.name || '',
-                price: buyPrice,
-                currentPrice: curPrice,
-                quantity: Number(item.quantity) || 0,
-              };
-            });
-            saveLocalPortfolio();
-          }
-          renderPortfolio();
-          if (showAlertOnSuccess) {
-            alert(`✅ 구글 시트에서 총 ${portfolio.length}건의 포트폴리오와 현재가를 동기화했습니다!`);
-          }
+        const remoteTrades = Array.isArray(data?.trades) ? data.trades : [];
+        const remoteItems = Array.isArray(data?.items) ? data.items : [];
+
+        if (remoteTrades.length === 0 && remoteItems.length === 0 && trades.length > 0) {
+          const syncRes = await postToGoogleSheet({ action: 'syncAll', trades });
+          if (syncRes) applyRemoteState(syncRes);
+        } else {
+          applyRemoteState(data);
+        }
+
+        if (showAlertOnSuccess) {
+          alert(`✅ 구글 시트 동기화 완료! (매매내역 ${trades.length}건 / 현재 보유종목 ${portfolio.length}종목)`);
         }
       } catch (err) {
         console.error('구글 시트 동기화 오류:', err);
-        loadLocalPortfolio();
+        loadLocalState();
         if (showAlertOnSuccess) {
-          alert('구글 시트 동기화 실패: ' + err.message + '\nApps Script 웹 앱 URL과 배포 권한(모든 사용자)을 확인해 주세요.');
+          alert('구글 시트 동기화 실패: ' + err.message + '\n상단 가이드의 최신 Apps Script 코드로 배포되었는지 확인해 주세요.');
         }
       } finally {
         googleFinanceFetchBtn.disabled = false;
@@ -791,7 +1207,7 @@ function doPost(e) {
       if (!url) {
         localStorage.removeItem(STORAGE_KEY_SHEET_URL);
         updateSheetSyncBadge(false);
-        loadLocalPortfolio();
+        loadLocalState();
         alert('구글 시트 연결이 해제되어 로컬 모드로 전환되었습니다.');
         return;
       }
@@ -806,16 +1222,16 @@ function doPost(e) {
         alert('먼저 구글 시트 웹 앱 URL을 입력하고 [연결 저장]을 눌러주세요.');
         return;
       }
-      if (portfolio.length === 0) {
-        alert('업로드할 포트폴리오 내역이 없습니다.');
+      if (trades.length === 0) {
+        alert('업로드할 매수/매도 내역이 없습니다.');
         return;
       }
       try {
         uploadLocalToSheetBtn.disabled = true;
         uploadLocalToSheetBtn.textContent = '⏳ 업로드 중...';
-        await postToGoogleSheet({ action: 'syncAll', items: portfolio });
-        await loadPortfolioFromGoogleSheet(false);
-        alert('✅ 현재 포트폴리오 데이터가 구글 시트에 저장되었습니다!');
+        const resData = await postToGoogleSheet({ action: 'syncAll', trades });
+        if (resData) applyRemoteState(resData);
+        alert('✅ 현재 매수/매도 내역과 포트폴리오가 구글 시트에 저장되었습니다!');
       } catch (err) {
         alert('시트 업로드 실패: ' + err.message);
       } finally {
@@ -875,6 +1291,11 @@ function doPost(e) {
       }
     });
 
+    function renderAll() {
+      renderPortfolio();
+      renderTrades();
+    }
+
     function renderPortfolio() {
       const krwItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'KRW');
       const usdItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'USD');
@@ -889,8 +1310,7 @@ function doPost(e) {
       const usdProfit = usdEval - usdBuy;
       const usdRate = usdBuy > 0 ? (usdProfit / usdBuy) * 100 : 0;
 
-      const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
-      totalCountText.textContent = `보유 ${uniqueStocks}종목 (${portfolio.length}건)`;
+      totalCountText.textContent = `보유 ${portfolio.length}종목 (매매기록 ${trades.length}건)`;
 
       const buyLines = [];
       const evalLines = [];
@@ -921,7 +1341,7 @@ function doPost(e) {
       totalProfitText.innerHTML = profitLines.join('');
 
       if (portfolio.length === 0) {
-        sectorSummaryBox.innerHTML = '<span class="text-slate-500">등록된 내역이 없습니다.</span>';
+        sectorSummaryBox.innerHTML = '<span class="text-slate-500">보유 중인 종목이 없습니다.</span>';
       } else {
         const sectorMap = {};
         let totalWeightBase = 0;
@@ -946,7 +1366,7 @@ function doPost(e) {
         portfolioTableBody.innerHTML = `
           <tr>
             <td colspan="8" class="py-8 text-center text-slate-500 text-sm">
-              아직 등록된 포트폴리오 내역이 없습니다. 위 매매내역 입력창에서 첫 종목을 추가해 보세요!
+              현재 보유수량이 0보다 큰 종목이 없습니다. 위 [매수/매도 내역]에서 매수 기록을 추가해 보세요!
             </td>
           </tr>
         `;
@@ -974,6 +1394,8 @@ function doPost(e) {
               ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
+          const displayBuyPrice = currency === 'USD' ? Number(item.price.toFixed(4)) : Math.round(item.price);
+
           return `
             <tr class="hover:bg-slate-800/60 transition">
               <td class="py-3 px-4">
@@ -992,8 +1414,8 @@ function doPost(e) {
                   type="number"
                   min="0.0001"
                   step="any"
-                  value="${item.price}"
-                  onchange="updateBuyPrice('${item.id}', this.value)"
+                  value="${displayBuyPrice}"
+                  onchange="updateBuyPrice('${escapeHtml(item.id)}', this.value)"
                   class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
@@ -1003,7 +1425,7 @@ function doPost(e) {
                   min="0.0001"
                   step="any"
                   value="${curPrice}"
-                  onchange="updateCurrentPrice('${item.id}', this.value)"
+                  onchange="updateCurrentPrice('${escapeHtml(item.id)}', this.value)"
                   class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
@@ -1019,7 +1441,7 @@ function doPost(e) {
               <td class="py-3 px-4 text-center whitespace-nowrap">
                 <button
                   type="button"
-                  onclick="deleteStockItem('${item.id}')"
+                  onclick="deleteHoldingItem('${escapeHtml(item.id)}')"
                   class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2.5 py-1 rounded transition whitespace-nowrap"
                 >
                   삭제
@@ -1031,51 +1453,108 @@ function doPost(e) {
         .join('');
     }
 
+    // 매매내역 테이블 렌더링 (시간의 역순)
+    function renderTrades() {
+      tradeCountBadge.textContent = `총 ${trades.length}건`;
+      if (trades.length === 0) {
+        tradesTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="py-6 text-center text-slate-500 text-sm">
+              기록된 매수/매도 내역이 없습니다.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tradesTableBody.innerHTML = trades
+        .map((tr) => {
+          const isSell = tr.type === 'SELL' || tr.type === '매도';
+          const currency = detectCurrency(tr.code, tr.currency);
+          const typeBadge = isSell
+            ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-sky-950/90 text-sky-300 border border-sky-700/80">매도</span>'
+            : '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-rose-950/90 text-rose-300 border border-rose-700/80">매수</span>';
+
+          const curBadgeClass =
+            currency === 'USD'
+              ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
+              : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
+
+          const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
+
+          return `
+            <tr class="hover:bg-slate-800/50 transition">
+              <td class="py-2.5 px-4 text-slate-300 font-mono text-xs">${escapeHtml(tr.date)}</td>
+              <td class="py-2.5 px-4 text-center">${typeBadge}</td>
+              <td class="py-2.5 px-4">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(tr.sector)}</span>
+                  <span class="font-semibold text-white">${escapeHtml(tr.name)}</span>
+                  ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(tr.code)})</span>` : ''}
+                </div>
+              </td>
+              <td class="py-2.5 px-4 text-center">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
+              </td>
+              <td class="py-2.5 px-4 text-right text-slate-200 font-mono">${formatAmountPlain(tr.price, currency)}</td>
+              <td class="py-2.5 px-4 text-right text-slate-200 font-mono">${Number(tr.quantity).toLocaleString('ko-KR')}</td>
+              <td class="py-2.5 px-4 text-right font-semibold text-white font-mono">${formatAmountPlain(totalAmt, currency)}</td>
+              <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                <button
+                  type="button"
+                  onclick="deleteTradeItem('${escapeHtml(tr.id)}')"
+                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2.5 py-1 rounded transition"
+                >
+                  내역삭제
+                </button>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
     // 포트폴리오 표에서 매수단가 직접 수정
-    window.updateBuyPrice = async function (id, newBuyPriceStr) {
+    window.updateBuyPrice = async function (tickerKey, newBuyPriceStr) {
       const newBuyPrice = parseFloat(newBuyPriceStr);
       if (isNaN(newBuyPrice) || newBuyPrice <= 0) {
         renderPortfolio();
         return;
       }
 
-      portfolio = portfolio.map((item) =>
-        String(item.id) === String(id) ? { ...item, price: newBuyPrice } : item
-      );
-      saveLocalPortfolio();
-      renderPortfolio();
+      setLocalOverride(tickerKey, 'manualBuyPrice', newBuyPrice);
+      rebuildLocalPortfolioFromTrades();
 
       try {
-        await postToGoogleSheet({
-          action: 'update',
-          id: String(id),
+        const resData = await postToGoogleSheet({
+          action: 'updatePortfolio',
+          id: String(tickerKey),
           price: newBuyPrice,
         });
+        if (resData) applyRemoteState(resData);
       } catch (err) {
         console.warn('구글 시트 매수단가 업데이트 오류:', err.message);
       }
     };
 
     // 포트폴리오 표에서 현재가 직접 수정
-    window.updateCurrentPrice = async function (id, newPriceStr) {
+    window.updateCurrentPrice = async function (tickerKey, newPriceStr) {
       const newPrice = parseFloat(newPriceStr);
       if (isNaN(newPrice) || newPrice <= 0) {
         renderPortfolio();
         return;
       }
 
-      portfolio = portfolio.map((item) =>
-        String(item.id) === String(id) ? { ...item, currentPrice: newPrice } : item
-      );
-      saveLocalPortfolio();
-      renderPortfolio();
+      setLocalOverride(tickerKey, 'manualCurrentPrice', newPrice);
+      rebuildLocalPortfolioFromTrades();
 
       try {
-        await postToGoogleSheet({
-          action: 'update',
-          id: String(id),
+        const resData = await postToGoogleSheet({
+          action: 'updatePortfolio',
+          id: String(tickerKey),
           currentPrice: newPrice,
         });
+        if (resData) applyRemoteState(resData);
       } catch (err) {
         console.warn('구글 시트 현재가 업데이트 오류:', err.message);
       }
@@ -1092,9 +1571,11 @@ function doPost(e) {
       await loadPortfolioFromGoogleSheet(true);
     });
 
+    // 매수/매도 내역 추가
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = buyDateInput.value;
+      const type = tradeTypeInput.value; // 'BUY' or 'SELL'
       const currency = marketCurrencyInput.value;
       const sector = sectorInput.value.trim();
       const code = toGoogleFinanceTicker(stockCodeInput.value.trim());
@@ -1103,18 +1584,29 @@ function doPost(e) {
       const curPriceRaw = parseFloat(currentPriceInput.value);
       const quantity = parseFloat(quantityInput.value);
 
-      if (!sector || !name || isNaN(price) || isNaN(quantity)) {
-        alert('모든 필수 입력 항목을 올바르게 입력해 주세요.');
+      if (!sector || !code || !name || isNaN(price) || isNaN(quantity)) {
+        alert('모든 필수 입력 항목(티커 포함)을 올바르게 입력해 주세요.');
         return;
+      }
+
+      const tickerKey = (code || name).trim().toUpperCase();
+      if (type === 'SELL') {
+        const holding = portfolio.find((p) => p.id === tickerKey);
+        const currentQty = holding ? holding.quantity : 0;
+        if (quantity > currentQty + 0.000001) {
+          alert(`보유 수량(${currentQty}주)보다 많은 수량(${quantity}주)을 매도할 수 없습니다.`);
+          return;
+        }
       }
 
       const manualCurrentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0;
       const currentPrice = manualCurrentPrice ? curPriceRaw : price;
       const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
 
-      const newItem = {
+      const newTrade = {
         id: newId,
         date,
+        type,
         sector,
         code,
         currency,
@@ -1123,19 +1615,24 @@ function doPost(e) {
         currentPrice,
         quantity,
         manualCurrentPrice,
+        createdAt: Date.now(),
       };
 
       submitStockBtn.disabled = true;
-      submitStockBtn.textContent = '저장 중...';
+      submitStockBtn.textContent = '기록 중...';
 
       try {
-        portfolio.unshift(newItem);
-        saveLocalPortfolio();
-        renderPortfolio();
+        // 신규 매매가 발생하면 평균매수단가를 매매내역 기준으로 다시 계산하도록 오버라이드 초기화
+        setLocalOverride(tickerKey, 'manualBuyPrice', null);
+        if (manualCurrentPrice) {
+          setLocalOverride(tickerKey, 'manualCurrentPrice', currentPrice);
+        }
+        trades.unshift(newTrade);
+        rebuildLocalPortfolioFromTrades();
 
         if (getSheetWebAppUrl()) {
-          await postToGoogleSheet({ action: 'add', item: newItem });
-          await loadPortfolioFromGoogleSheet(false);
+          const resData = await postToGoogleSheet({ action: 'addTrade', trade: newTrade });
+          if (resData) applyRemoteState(resData);
         }
 
         stockCodeInput.value = '';
@@ -1143,30 +1640,50 @@ function doPost(e) {
         buyPriceInput.value = '';
         currentPriceInput.value = '';
         quantityInput.value = '';
-        stockNameInput.focus();
+        stockCodeInput.focus();
       } catch (err) {
         alert('구글 시트 저장 중 오류가 발생했습니다 (브라우저에는 저장됨): ' + err.message);
       } finally {
         submitStockBtn.disabled = false;
-        submitStockBtn.textContent = '포트폴리오에 추가';
+        submitStockBtn.textContent = '매수/매도 내역 기록하기';
       }
     });
 
-    window.deleteStockItem = async function (id) {
-      portfolio = portfolio.filter((item) => String(item.id) !== String(id));
-      saveLocalPortfolio();
-      renderPortfolio();
+    // 개별 매매내역 삭제
+    window.deleteTradeItem = async function (tradeId) {
+      trades = trades.filter((t) => String(t.id) !== String(tradeId));
+      rebuildLocalPortfolioFromTrades();
 
       try {
-        await postToGoogleSheet({ action: 'delete', id: String(id) });
+        const resData = await postToGoogleSheet({ action: 'deleteTrade', id: String(tradeId) });
+        if (resData) applyRemoteState(resData);
       } catch (err) {
-        console.warn('구글 시트 삭제 동기화 오류:', err.message);
+        console.warn('구글 시트 매매내역 삭제 오류:', err.message);
+      }
+    };
+
+    // 포트폴리오 종목 전체 삭제 (해당 티커의 매매내역 일괄 삭제)
+    window.deleteHoldingItem = async function (tickerKey) {
+      const key = String(tickerKey).trim().toUpperCase();
+      trades = trades.filter((t) => {
+        const tk = (toGoogleFinanceTicker(t.code || '') || t.name || '').trim().toUpperCase();
+        return tk !== key;
+      });
+      setLocalOverride(key, 'manualBuyPrice', null);
+      setLocalOverride(key, 'manualCurrentPrice', null);
+      rebuildLocalPortfolioFromTrades();
+
+      try {
+        const resData = await postToGoogleSheet({ action: 'deleteHolding', id: key });
+        if (resData) applyRemoteState(resData);
+      } catch (err) {
+        console.warn('구글 시트 종목 삭제 동기화 오류:', err.message);
       }
     };
 
     function buildPortfolioContextText() {
       if (portfolio.length === 0) {
-        return '현재 등록된 주식 포트폴리오 내역이 없습니다.';
+        return '현재 보유 중인 주식 포트폴리오 내역이 없습니다.';
       }
       const lines = portfolio.map((item, idx) => {
         const cur = detectCurrency(item.code, item.currency);
@@ -1175,10 +1692,10 @@ function doPost(e) {
         const evalAmt = curPrice * item.quantity;
         const profit = evalAmt - buyAmt;
         const profitRate = buyAmt > 0 ? ((profit / buyAmt) * 100).toFixed(2) : '0.00';
-        return `${idx + 1}. [${item.sector}/${cur}] ${item.name}${item.code ? `(${item.code})` : ''} - 매수단가: ${cur} ${formatAmountPlain(item.price, cur)}, 현재가: ${cur} ${formatAmountPlain(curPrice, cur)}, 수량: ${item.quantity}, 평가금액: ${cur} ${formatAmountPlain(evalAmt, cur)}, 수익률: ${profitRate}%`;
+        return `${idx + 1}. [${item.sector}/${cur}] ${item.name}${item.code ? `(${item.code})` : ''} - 평균매수단가: ${cur} ${formatAmountPlain(item.price, cur)}, 현재가: ${cur} ${formatAmountPlain(curPrice, cur)}, 보유수량: ${item.quantity}주, 평가금액: ${cur} ${formatAmountPlain(evalAmt, cur)}, 수익률: ${profitRate}%`;
       });
 
-      return `보유 내역:\n${lines.join('\n')}`;
+      return `보유 포트폴리오 (보유수량 > 0):\n${lines.join('\n')}`;
     }
 
     function appendMessage(role, text) {
@@ -1272,7 +1789,7 @@ ${userQuestion}`;
 
     // 초기 실행
     initGeminiKey();
-    loadLocalPortfolio();
+    loadLocalState();
     const savedSheetUrl = localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
     if (savedSheetUrl) {
       googleSheetUrlInput.value = savedSheetUrl;
