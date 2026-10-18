@@ -201,7 +201,7 @@ function searchStockApi(query) {
     }
   }
 
-  return exact.concat(prefix).concat(partial).slice(0, 15);
+  return exact.concat(prefix).concat(partial);
 }
 
 // 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 &gt; 0, 평균단가 자동계산) 갱신
@@ -1219,7 +1219,7 @@ function doPost(e) {
         }
       }
 
-      return [...exactMatches, ...prefixMatches, ...partialMatches].slice(0, 15);
+      return [...exactMatches, ...prefixMatches, ...partialMatches];
     }
 
     async function fetchWithTimeout(url, timeoutMs = 2500) {
@@ -1274,7 +1274,7 @@ function doPost(e) {
         });
         searchCache.set(cacheKey, results);
       }
-      return results.slice(0, 15);
+      return results;
     }
 
     function mergeStockResults(localItems, remoteItems) {
@@ -1286,7 +1286,7 @@ function doPost(e) {
         seen.add(key);
         merged.push(item);
       });
-      return merged.slice(0, 10);
+      return merged;
     }
 
     function renderSuggestionDropdown(boxEl, items) {
