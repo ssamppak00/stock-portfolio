@@ -13,7 +13,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">구글 시트 <code class="text-emerald-400">GOOGLEFINANCE()</code> 현재가 연동 · Supabase 실시간 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 통합 관리 및 실시간 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -78,20 +78,18 @@
           </button>
         </div>
         <div class="bg-slate-900 p-3 rounded border border-slate-800 space-y-1.5 text-slate-300">
-          <p>1. 위 <strong>[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기]</strong>를 누르고 구글 시트(<code>https://sheets.new</code>)의 <strong>A1 셀</strong>에 붙여넣기(<code>Ctrl+V</code>)하면 <code>=GOOGLEFINANCE("KRX:005930", "price")</code> 수식이 자동으로 계산됩니다.</p>
+          <p>1. 위 <strong>[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기]</strong>를 누르고 구글 시트(<code>https://sheets.new</code>)의 <strong>A1 셀</strong>에 붙여넣기(<code>Ctrl+V</code>)하면 <code>=GOOGLEFINANCE(...)</code> 수식이 자동으로 계산됩니다.</p>
           <p>2. 구글 시트 상단 메뉴 <strong>[파일 > 공유 > 웹에 게시]</strong>에서 <strong>전체 문서 + 쉼표로 구분된 값(.csv)</strong>으로 게시하거나, 우측 상단 <strong>[공유 > 링크가 있는 모든 사용자에게 공개]</strong> 후 주소를 복사해 아래 <strong>3단계 입력칸</strong>에 붙여넣고 저장하세요.</p>
-          <p class="text-amber-300">💡 팁: 한국 주식은 <code>KRX:005930</code>(또는 <code>005930</code> 입력 시 자동 변환), 미국 주식은 <code>NASDAQ:AAPL</code>, <code>NYSE:TSLA</code> 형식을 지원합니다.</p>
+          <p class="text-amber-300">💡 팁: 한국 주식은 <code>KRX:005930</code>(또는 <code>005930</code>), 미국 주식은 <code>NASDAQ:AAPL</code>, <code>NYSE:TSLA</code>, <code>AAPL</code> 형식을 지원합니다.</p>
         </div>
         <div>
           <p class="text-indigo-300 font-semibold mb-1">
             ✅ 방법 2 (Apps Script 웹앱 방식 - 시트에 종목을 미리 적어두지 않아도 실시간 계산):
           </p>
-          <p class="text-slate-400 mb-1">구글 시트 상단 <strong>[확장 프로그램 > Apps Script]</strong>에 아래 코드를 붙여넣고 <strong>[배포 > 새 배포 > 웹 앱(모든 사용자 접근)]</strong> URL을 3단계 칸에 넣으면 어떤 종목이든 즉시 <code>GOOGLEFINANCE()</code>로 조회합니다.</p>
           <pre class="leading-relaxed select-all bg-slate-900 p-2.5 rounded border border-slate-800 overflow-x-auto">function doGet(e) {
   var ticker = (e && e.parameter && e.parameter.ticker) ? e.parameter.ticker.trim() : "";
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
   if (ticker) {
-    // 6자리 숫자 코드면 KRX: 자동 부착
     if (/^\d{1,5}$/.test(ticker)) ticker = ("000000" + ticker).slice(-6);
     if (/^\d{6}$/.test(ticker)) ticker = "KRX:" + ticker;
     var cell = sheet.getRange("Z1");
@@ -101,7 +99,6 @@
     return ContentService.createTextOutput(JSON.stringify({ ticker: ticker, price: Number(price) }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  // 파라미터가 없으면 시트 A~C열 전체 반환
   var rows = sheet.getDataRange().getValues();
   return ContentService.createTextOutput(JSON.stringify({ rows: rows }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -223,7 +220,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
             <span id="sheetUrlStatus" class="text-xs text-slate-400">미등록</span>
           </div>
           <p class="text-[11px] text-slate-400 leading-relaxed">
-            <code>=GOOGLEFINANCE()</code>가 입력된 <strong>구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)</strong>를 입력하세요.
+            <code>=GOOGLEFINANCE()</code>가 입력된 <strong>구글 시트 공유 링크(또는 CSV / Apps Script URL)</strong>를 입력하세요.
           </p>
           <input
             id="googleSheetUrlInput"
@@ -251,25 +248,31 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       </div>
     </section>
 
-    <!-- 상단 요약 카드 4종 (총 매수, 총 평가, 평가손익/수익률, 섹터 비중) -->
+    <!-- 상단 요약 카드 4종 (KRW / USD 병기) -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">총 매수 금액</p>
-        <p id="totalInvestmentText" class="text-2xl font-bold text-white mt-1">0원</p>
+        <p class="text-xs font-medium text-slate-400">총 매수 금액 (KRW / USD)</p>
+        <div id="totalInvestmentText" class="text-lg font-bold text-white mt-1 space-y-0.5">
+          <div>KRW 0</div>
+        </div>
         <p id="totalCountText" class="text-xs text-slate-400 mt-1">보유 0종목 (0건)</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">총 평가 금액 (현재가 기준)</p>
-        <p id="totalEvalText" class="text-2xl font-bold text-indigo-400 mt-1">0원</p>
-        <p class="text-xs text-slate-500 mt-1">GOOGLEFINANCE() 시세 연동 및 직접 수정 지원</p>
+        <p class="text-xs font-medium text-slate-400">총 평가 금액 (KRW / USD)</p>
+        <div id="totalEvalText" class="text-lg font-bold text-indigo-400 mt-1 space-y-0.5">
+          <div>KRW 0</div>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">현재가 기준</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">총 평가 손익 (수익률)</p>
-        <p id="totalProfitText" class="text-2xl font-bold text-slate-200 mt-1">0원 (0.00%)</p>
+        <p class="text-xs font-medium text-slate-400">총 평가 손익 (KRW / USD)</p>
+        <div id="totalProfitText" class="text-lg font-bold text-slate-200 mt-1 space-y-0.5">
+          <div>KRW 0 (0.00%)</div>
+        </div>
         <p class="text-xs text-slate-500 mt-1">현재가 - 매수단가 기준</p>
       </div>
       <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
-        <p class="text-xs font-medium text-slate-400">섹터별 비중 요약 (평가액 기준)</p>
+        <p class="text-xs font-medium text-slate-400">섹터별 비중 요약</p>
         <div id="sectorSummaryBox" class="mt-2 flex flex-wrap gap-1.5 text-xs text-slate-300">
           <span class="text-slate-500">등록된 내역이 없습니다.</span>
         </div>
@@ -284,9 +287,9 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
             <h2 class="text-base font-bold text-white">➕ 주식 매수 내역 추가</h2>
-            <span class="text-xs text-emerald-400">💡 티커 예: <code class="font-mono">KRX:005930</code> (또는 <code class="font-mono">005930</code>), <code class="font-mono">NASDAQ:AAPL</code></span>
+            <span class="text-xs text-emerald-400">💡 한국주식(<code class="font-mono">005930</code>)은 <strong>KRW</strong>, 미국주식(<code class="font-mono">AAPL</code>, <code class="font-mono">NASDAQ:NVDA</code>)은 <strong>USD</strong>로 자동 구분됩니다</span>
           </div>
-          <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label for="buyDate" class="block text-xs font-medium text-slate-400 mb-1">매수일자</label>
               <input
@@ -295,6 +298,16 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 required
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
+            </div>
+            <div>
+              <label for="marketCurrency" class="block text-xs font-medium text-slate-400 mb-1">시장 / 통화</label>
+              <select
+                id="marketCurrency"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="KRW">한국주식 (KRW)</option>
+                <option value="USD">미국주식 (USD)</option>
+              </select>
             </div>
             <div>
               <label for="sector" class="block text-xs font-medium text-slate-400 mb-1">분야 / 섹터</label>
@@ -316,12 +329,12 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               </datalist>
             </div>
             <div>
-              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">GOOGLEFINANCE 티커/종목코드</label>
+              <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">티커 / 종목코드</label>
               <div class="flex gap-1.5">
                 <input
                   id="stockCode"
                   type="text"
-                  placeholder="005930 또는 KRX:005930"
+                  placeholder="005930, AAPL"
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
@@ -339,50 +352,50 @@ alter publication supabase_realtime add table public.portfolios;</pre>
               <input
                 id="stockName"
                 type="text"
-                placeholder="예: 삼성전자"
+                placeholder="예: 삼성전자, Apple"
                 required
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (원)</label>
+              <label for="buyPrice" class="block text-xs font-medium text-slate-400 mb-1">매수단가 (KRW/USD)</label>
               <input
                 id="buyPrice"
                 type="number"
-                min="1"
+                min="0.0001"
                 step="any"
-                placeholder="예: 70000"
+                placeholder="예: 70000 또는 185.5"
                 required
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="currentPrice" class="block text-xs font-medium text-slate-400 mb-1">현재가 (원, 자동/수동)</label>
+              <label for="currentPrice" class="block text-xs font-medium text-slate-400 mb-1">현재가 (KRW/USD)</label>
               <input
                 id="currentPrice"
                 type="number"
-                min="1"
+                min="0.0001"
                 step="any"
-                placeholder="GOOGLEFINANCE 시세/직접입력"
+                placeholder="미입력 시 매수단가"
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량 (주)</label>
+              <label for="quantity" class="block text-xs font-medium text-slate-400 mb-1">매수수량</label>
               <input
                 id="quantity"
                 type="number"
-                min="1"
+                min="0.0001"
                 step="any"
                 placeholder="예: 10"
                 required
                 class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            <div class="sm:col-span-1 lg:col-span-2 flex items-end justify-end">
+            <div class="sm:col-span-2 lg:col-span-4 flex items-end justify-end mt-1">
               <button
                 type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-6 rounded-lg transition shadow-sm"
+                class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm py-2 px-6 rounded-lg transition shadow-sm"
               >
                 포트폴리오에 추가
               </button>
@@ -390,31 +403,32 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           </form>
         </section>
 
-        <!-- 2. 포트폴리오 현황 테이블 -->
+        <!-- 2. 포트폴리오 테이블 -->
         <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div>
-              <h2 class="text-base font-bold text-white">📋 포트폴리오 매수 내역 & <code class="text-emerald-400">GOOGLEFINANCE</code> 수익률</h2>
-              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">구글 시트의 <code class="text-emerald-400">=GOOGLEFINANCE()</code> 계산 결과를 불러오거나 표에서 직접 수정할 수 있습니다</p>
+              <h2 class="text-base font-bold text-white">📋 포트폴리오</h2>
+              <p id="storageNoticeText" class="text-xs text-slate-400 mt-0.5">한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다</p>
             </div>
             <button
               id="googleFinanceFetchBtn"
               type="button"
               class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 font-semibold px-3.5 py-2 rounded-lg transition self-start sm:self-auto shadow-sm"
             >
-              🔄 구글 시트 GOOGLEFINANCE 현재가 동기화
+              🔄 현재가 동기화
             </button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-                  <th class="py-2.5 px-2.5">섹터/종목 (GOOGLEFINANCE 수식)</th>
-                  <th class="py-2.5 px-2.5 text-right">매수단가</th>
-                  <th class="py-2.5 px-2.5 text-right">현재가 (시트연동/수정)</th>
-                  <th class="py-2.5 px-2.5 text-right">수량</th>
-                  <th class="py-2.5 px-2.5 text-right">평가금액 (비중)</th>
-                  <th class="py-2.5 px-2.5 text-right">평가손익 (수익률)</th>
+                  <th class="py-2.5 px-2.5">섹터/종목</th>
+                  <th class="py-2.5 px-2.5 text-center">통화</th>
+                  <th class="py-2.5 px-2.5 text-right">매수단가 (KRW/USD)</th>
+                  <th class="py-2.5 px-2.5 text-right">현재가 (KRW/USD)</th>
+                  <th class="py-2.5 px-2.5 text-right">수량 (주)</th>
+                  <th class="py-2.5 px-2.5 text-right">평가금액 (KRW/USD)</th>
+                  <th class="py-2.5 px-2.5 text-right">평가손익 (KRW/USD)</th>
                   <th class="py-2.5 px-2.5 text-center">관리</th>
                 </tr>
               </thead>
@@ -430,7 +444,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           <div class="p-4 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 class="text-base font-bold text-white">🤖 Gemini AI 포트폴리오 상담소</h2>
-              <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · 매수가·현재가·수익률 자동 연동</p>
+              <p class="text-xs text-slate-400">모델: <code class="text-indigo-400 font-semibold">gemini-2.5-flash</code> · KRW/USD 포트폴리오 자동 연동</p>
             </div>
           </div>
 
@@ -460,7 +474,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
           <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40 text-sm">
             <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 shadow-sm">
-              안녕하세요! 구글 시트의 <strong>GOOGLEFINANCE()</strong>로 불러온 현재가와 수익률을 바탕으로 맞춤형 포트폴리오 상담을 도와드립니다.
+              안녕하세요! 등록된 한국주식(KRW)과 미국주식(USD) 포트폴리오의 현재가 및 수익률을 바탕으로 맞춤형 상담을 도와드립니다.
             </div>
           </div>
 
@@ -489,6 +503,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     const STORAGE_KEY_PORTFOLIO = 'my_stock_portfolio_v1';
     const STORAGE_KEY_CURRENT_PRICES = 'my_stock_current_prices_v1';
     const STORAGE_KEY_STOCK_CODES = 'my_stock_codes_v1';
+    const STORAGE_KEY_CURRENCIES = 'my_stock_currencies_v1';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SB_URL = 'my_supabase_url_v1';
     const STORAGE_KEY_SB_KEY = 'my_supabase_anon_key_v1';
@@ -530,6 +545,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
     const stockForm = document.getElementById('stockForm');
     const buyDateInput = document.getElementById('buyDate');
+    const marketCurrencyInput = document.getElementById('marketCurrency');
     const sectorInput = document.getElementById('sector');
     const stockCodeInput = document.getElementById('stockCode');
     const lookupFormPriceBtn = document.getElementById('lookupFormPriceBtn');
@@ -562,8 +578,47 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       sheetGuideBox.classList.toggle('hidden');
     });
 
-    function formatKRW(number) {
-      return Math.round(number).toLocaleString('ko-KR') + '원';
+    // 티커 입력 시 한국주식(KRW) / 미국주식(USD) 자동 감지
+    stockCodeInput.addEventListener('input', () => {
+      const val = stockCodeInput.value.trim().toUpperCase();
+      if (!val) return;
+      if (val.startsWith('NASDAQ:') || val.startsWith('NYSE:') || val.startsWith('AMEX:') || /^[A-Z]{1,5}$/.test(val)) {
+        marketCurrencyInput.value = 'USD';
+      } else if (val.startsWith('KRX:') || val.startsWith('KOSDAQ:') || /^\d/.test(val)) {
+        marketCurrencyInput.value = 'KRW';
+      }
+    });
+
+    /**
+     * 종목의 통화(KRW 또는 USD) 판별
+     */
+    function detectCurrency(code, savedCurrency) {
+      if (savedCurrency === 'USD' || savedCurrency === 'KRW') return savedCurrency;
+      const c = String(code || '').trim().toUpperCase();
+      if (!c) return 'KRW';
+      if (
+        c.startsWith('NASDAQ:') ||
+        c.startsWith('NYSE:') ||
+        c.startsWith('AMEX:') ||
+        /^[A-Z]{1,5}(\.[A-Z])?$/.test(c)
+      ) {
+        return 'USD';
+      }
+      return 'KRW';
+    }
+
+    /**
+     * 테이블 셀용 숫자 포맷 (단위는 헤더에만 표기하므로 숫자만 깔끔하게 반환)
+     */
+    function formatAmountPlain(number, currency) {
+      const num = Number(number) || 0;
+      if (currency === 'USD') {
+        return num.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+      return Math.round(num).toLocaleString('ko-KR');
     }
 
     function escapeHtml(str) {
@@ -582,23 +637,14 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     function toGoogleFinanceTicker(rawCode) {
       if (!rawCode) return '';
       let code = String(rawCode).trim().toUpperCase();
-      // 1~5자리 숫자인 경우 6자리로 0 채움 후 KRX: 부착
       if (/^\d{1,5}$/.test(code)) {
         code = 'KRX:' + code.padStart(6, '0');
       } else if (/^\d{6}$/.test(code)) {
         code = 'KRX:' + code;
+      } else if (/^\d{4}[0-9A-Z]{2}$/.test(code) && !code.includes(':')) {
+        code = 'KRX:' + code;
       }
       return code;
-    }
-
-    /**
-     * 개별 종목에 대한 구글 시트 수식 문자열 생성
-     * 예: =GOOGLEFINANCE("KRX:005930", "price")
-     */
-    function buildGoogleFinanceFormula(codeOrName) {
-      const ticker = toGoogleFinanceTicker(codeOrName);
-      if (!ticker) return '';
-      return `=GOOGLEFINANCE("${ticker}", "price")`;
     }
 
     /**
@@ -634,24 +680,8 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     copySheetFormulaBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
     copyFormulaQuickBtn.addEventListener('click', copyPortfolioGoogleFinanceTable);
 
-    // 개별 수식 복사 함수 (테이블 내 배지 클릭 시)
-    window.copySingleFormula = async function (codeOrName) {
-      const formula = buildGoogleFinanceFormula(codeOrName);
-      try {
-        await navigator.clipboard.writeText(formula);
-        alert(`복사 완료: ${formula}\n구글 시트 셀에 바로 붙여넣으실 수 있습니다.`);
-      } catch (_e) {
-        prompt('구글 시트 수식을 복사하세요:', formula);
-      }
-    };
-
-    /**
-     * 구글 시트 URL(일반 공유 링크, 웹에 게시 CSV 링크, 또는 Apps Script 웹앱 링크)에서
-     * GOOGLEFINANCE()로 계산된 가격 데이터를 읽어옵니다.
-     */
     function normalizeGoogleSheetCsvUrl(rawUrl) {
       const trimmed = String(rawUrl).trim();
-      // 이미 export?format=csv 또는 pub?output=csv 또는 gviz/tq 형태인 경우 그대로 사용
       if (
         trimmed.includes('output=csv') ||
         trimmed.includes('format=csv') ||
@@ -659,7 +689,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       ) {
         return trimmed;
       }
-      // 일반 구글 시트 주소: https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid={GID}
       const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
       if (match && match[1]) {
         const sheetId = match[1];
@@ -670,7 +699,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return trimmed;
     }
 
-    // 간단한 CSV 라인 파서
     function parseCsvRows(csvText) {
       return csvText
         .split(/\r?\n/)
@@ -683,9 +711,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         );
     }
 
-    /**
-     * 연결된 구글 시트(또는 Apps Script)에서 GOOGLEFINANCE() 현재가 조회
-     */
     async function fetchGoogleFinancePricesFromSheet(singleQueryTicker) {
       const rawSheetUrl =
         googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
@@ -697,7 +722,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         );
       }
 
-      // 1) Google Apps Script 웹앱 URL(script.google.com)인 경우
       if (rawSheetUrl.includes('script.google.com')) {
         if (singleQueryTicker) {
           const ticker = toGoogleFinanceTicker(singleQueryTicker);
@@ -713,7 +737,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         }
       }
 
-      // 2) 구글 시트 CSV / JSON 데이터 전체 읽기
       const fetchUrl = normalizeGoogleSheetCsvUrl(rawSheetUrl);
       const res = await fetch(fetchUrl);
       if (!res.ok) {
@@ -732,11 +755,9 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         rows = parseCsvRows(csvText);
       }
 
-      // rows에서 [티커/종목코드, 종목명, 가격] 또는 [종목명/코드, 가격] 매핑 추출
       const priceMap = {};
       rows.forEach((cols) => {
         if (!cols || cols.length < 2) return;
-        // 숫자(가격)가 들어있는 마지막 유효 컬럼 찾기
         let priceVal = NaN;
         for (let i = cols.length - 1; i >= 1; i--) {
           const cleaned = String(cols[i]).replace(/[₩$,원\s]/g, '');
@@ -748,13 +769,12 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         }
         if (isNaN(priceVal)) return;
 
-        // 앞쪽 컬럼들(티커, 순수 6자리 코드, 종목명)을 모두 키로 등록
         cols.slice(0, 2).forEach((keyCol) => {
           const rawKey = String(keyCol || '').trim();
           if (!rawKey) return;
           priceMap[rawKey.toUpperCase()] = priceVal;
           priceMap[toGoogleFinanceTicker(rawKey)] = priceVal;
-          const stripped = rawKey.toUpperCase().replace(/^KRX:|^KOSDAQ:|^KOSPI:/, '');
+          const stripped = rawKey.toUpperCase().replace(/^KRX:|^KOSDAQ:|^KOSPI:|^NASDAQ:|^NYSE:|^AMEX:/, '');
           priceMap[stripped] = priceVal;
         });
       });
@@ -762,11 +782,11 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (singleQueryTicker) {
         const key1 = String(singleQueryTicker).trim().toUpperCase();
         const key2 = toGoogleFinanceTicker(key1);
-        const key3 = key2.replace(/^KRX:/, '');
+        const key3 = key2.replace(/^KRX:|^NASDAQ:|^NYSE:|^AMEX:/, '');
         const found = priceMap[key1] ?? priceMap[key2] ?? priceMap[key3];
         if (!found) {
           throw new Error(
-            `구글 시트에서 '${singleQueryTicker}'의 GOOGLEFINANCE() 가격을 찾지 못했습니다. 시트에 해당 종목 수식이 있는지 확인해 주세요.`
+            `구글 시트에서 '${singleQueryTicker}'의 가격을 찾지 못했습니다. 시트에 해당 종목 수식이 있는지 확인해 주세요.`
           );
         }
         return { singlePrice: found, ticker: key2 };
@@ -775,7 +795,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       return { priceMap };
     }
 
-    // 로컬 현재가 및 종목코드 보조 캐시
+    // 로컬 캐시 도우미
     function getLocalPriceMap() {
       try {
         return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENT_PRICES) || '{}');
@@ -805,22 +825,43 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       localStorage.setItem(STORAGE_KEY_STOCK_CODES, JSON.stringify(map));
     }
 
+    function getLocalCurrencyMap() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_CURRENCIES) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function setLocalCurrency(id, currency) {
+      if (!currency) return;
+      const map = getLocalCurrencyMap();
+      map[id] = currency;
+      localStorage.setItem(STORAGE_KEY_CURRENCIES, JSON.stringify(map));
+    }
+
     function loadLocalPortfolio() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
         const list = saved ? JSON.parse(saved) : [];
         const priceMap = getLocalPriceMap();
         const codeMap = getLocalCodeMap();
-        portfolio = list.map((item) => ({
-          ...item,
-          code: item.code || codeMap[item.id] || '',
-          currentPrice:
-            item.currentPrice !== undefined && item.currentPrice !== null
-              ? Number(item.currentPrice)
-              : priceMap[item.id] !== undefined
-              ? Number(priceMap[item.id])
-              : Number(item.price),
-        }));
+        const curMap = getLocalCurrencyMap();
+        portfolio = list.map((item) => {
+          const code = item.code || codeMap[item.id] || '';
+          const currency = detectCurrency(code, item.currency || curMap[item.id]);
+          return {
+            ...item,
+            code,
+            currency,
+            currentPrice:
+              item.currentPrice !== undefined && item.currentPrice !== null
+                ? Number(item.currentPrice)
+                : priceMap[item.id] !== undefined
+                ? Number(priceMap[item.id])
+                : Number(item.price),
+          };
+        });
       } catch (err) {
         portfolio = [];
       }
@@ -862,7 +903,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (isCloudActive && currentUser) {
         syncBadge.textContent = '실시간 클라우드 동기화 켜짐 🟢';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold';
-        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email}) · 구글 시트 GOOGLEFINANCE() 연동`;
+        storageNoticeText.textContent = `Supabase 실시간 동기화 중 (${currentUser.email})`;
         userEmailText.textContent = currentUser.email;
         authFormArea.classList.add('hidden');
         signInBtn.classList.add('hidden');
@@ -871,7 +912,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       } else {
         syncBadge.textContent = '로컬 모드 (브라우저 저장)';
         syncBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium';
-        storageNoticeText.textContent = '구글 시트의 =GOOGLEFINANCE() 계산 결과를 불러오거나 표에서 직접 수정할 수 있습니다';
+        storageNoticeText.textContent = '한국주식은 KRW, 미국주식은 USD 기준으로 계산됩니다';
         userEmailText.textContent = '로그아웃 상태';
         authFormArea.classList.remove('hidden');
         signInBtn.classList.remove('hidden');
@@ -912,8 +953,11 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       const priceMap = getLocalPriceMap();
       const codeMap = getLocalCodeMap();
+      const curMap = getLocalCurrencyMap();
       portfolio = (data || []).map((row) => {
         const buyPrice = Number(row.buy_price);
+        const code = row.stock_code || codeMap[row.id] || '';
+        const currency = detectCurrency(code, curMap[row.id]);
         const curPrice =
           row.current_price !== undefined && row.current_price !== null
             ? Number(row.current_price)
@@ -924,7 +968,8 @@ alter publication supabase_realtime add table public.portfolios;</pre>
           id: row.id,
           date: row.buy_date,
           sector: row.sector,
-          code: row.stock_code || codeMap[row.id] || '',
+          code,
+          currency,
           name: row.stock_name,
           price: buyPrice,
           currentPrice: curPrice,
@@ -1020,7 +1065,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       }
     });
 
-    // 구글 시트 URL 초기 로드 및 저장
     function initSheetUrl() {
       const savedUrl = localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
       if (savedUrl) {
@@ -1042,7 +1086,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       localStorage.setItem(STORAGE_KEY_SHEET_URL, url);
       sheetUrlStatus.textContent = '연결됨 ✅';
       sheetUrlStatus.className = 'text-xs text-emerald-400 font-semibold';
-      alert('구글 시트 주소가 저장되었습니다! 이제 [구글 시트 GOOGLEFINANCE 현재가 동기화] 버튼을 눌러 시세를 불러올 수 있습니다.');
+      alert('구글 시트 주소가 저장되었습니다!');
     });
 
     function initGeminiKey() {
@@ -1069,11 +1113,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       alert('Gemini API 키가 브라우저에 저장되었습니다.');
     });
 
-    // 입력 폼에서 [시세조회] 클릭 시 구글 시트 GOOGLEFINANCE() 값 조회
     lookupFormPriceBtn.addEventListener('click', async () => {
       const query = stockCodeInput.value.trim() || stockNameInput.value.trim();
       if (!query) {
-        alert(' 먼저 티커/종목코드(예: 005930, KRX:005930, NASDAQ:AAPL) 또는 종목명을 입력해 주세요.');
+        alert('먼저 티커/종목코드(예: 005930, AAPL) 또는 종목명을 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
@@ -1084,6 +1127,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       try {
         const result = await fetchGoogleFinancePricesFromSheet(query);
         stockCodeInput.value = result.ticker;
+        marketCurrencyInput.value = detectCurrency(result.ticker);
         currentPriceInput.value = result.singlePrice;
         if (!buyPriceInput.value) {
           buyPriceInput.value = result.singlePrice;
@@ -1097,42 +1141,69 @@ alter publication supabase_realtime add table public.portfolios;</pre>
     });
 
     function renderPortfolio() {
-      const totalBuyAmount = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const totalEvalAmount = portfolio.reduce(
-        (sum, item) => sum + (item.currentPrice ?? item.price) * item.quantity,
-        0
-      );
-      const totalProfit = totalEvalAmount - totalBuyAmount;
-      const totalProfitRate = totalBuyAmount > 0 ? (totalProfit / totalBuyAmount) * 100 : 0;
-      const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
+      const krwItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'KRW');
+      const usdItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'USD');
 
-      totalInvestmentText.textContent = formatKRW(totalBuyAmount);
-      totalEvalText.textContent = formatKRW(totalEvalAmount);
+      const krwBuy = krwItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      const krwEval = krwItems.reduce((s, i) => s + (i.currentPrice ?? i.price) * i.quantity, 0);
+      const krwProfit = krwEval - krwBuy;
+      const krwRate = krwBuy > 0 ? (krwProfit / krwBuy) * 100 : 0;
+
+      const usdBuy = usdItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      const usdEval = usdItems.reduce((s, i) => s + (i.currentPrice ?? i.price) * i.quantity, 0);
+      const usdProfit = usdEval - usdBuy;
+      const usdRate = usdBuy > 0 ? (usdProfit / usdBuy) * 100 : 0;
+
+      const uniqueStocks = new Set(portfolio.map((item) => item.name.trim())).size;
       totalCountText.textContent = `보유 ${uniqueStocks}종목 (${portfolio.length}건)`;
 
-      const sign = totalProfit > 0 ? '+' : '';
-      totalProfitText.textContent = `${sign}${formatKRW(totalProfit)} (${sign}${totalProfitRate.toFixed(2)}%)`;
-      if (totalProfit > 0) {
-        totalProfitText.className = 'text-2xl font-bold text-rose-400 mt-1';
-      } else if (totalProfit < 0) {
-        totalProfitText.className = 'text-2xl font-bold text-sky-400 mt-1';
-      } else {
-        totalProfitText.className = 'text-2xl font-bold text-slate-200 mt-1';
+      // 상단 요약 카드 (KRW / USD 구분 표기)
+      const buyLines = [];
+      const evalLines = [];
+      const profitLines = [];
+
+      if (krwItems.length > 0 || usdItems.length === 0) {
+        buyLines.push(`<div>KRW ${formatAmountPlain(krwBuy, 'KRW')}</div>`);
+        evalLines.push(`<div>KRW ${formatAmountPlain(krwEval, 'KRW')}</div>`);
+        const kSign = krwProfit > 0 ? '+' : '';
+        const kColor = krwProfit > 0 ? 'text-rose-400' : krwProfit < 0 ? 'text-sky-400' : 'text-slate-200';
+        profitLines.push(
+          `<div class="${kColor}">KRW ${kSign}${formatAmountPlain(krwProfit, 'KRW')} (${kSign}${krwRate.toFixed(2)}%)</div>`
+        );
       }
 
-      if (portfolio.length === 0 || totalEvalAmount === 0) {
+      if (usdItems.length > 0) {
+        buyLines.push(`<div>USD ${formatAmountPlain(usdBuy, 'USD')}</div>`);
+        evalLines.push(`<div>USD ${formatAmountPlain(usdEval, 'USD')}</div>`);
+        const uSign = usdProfit > 0 ? '+' : '';
+        const uColor = usdProfit > 0 ? 'text-rose-400' : usdProfit < 0 ? 'text-sky-400' : 'text-slate-200';
+        profitLines.push(
+          `<div class="${uColor}">USD ${uSign}${formatAmountPlain(usdProfit, 'USD')} (${uSign}${usdRate.toFixed(2)}%)</div>`
+        );
+      }
+
+      totalInvestmentText.innerHTML = buyLines.join('');
+      totalEvalText.innerHTML = evalLines.join('');
+      totalProfitText.innerHTML = profitLines.join('');
+
+      if (portfolio.length === 0) {
         sectorSummaryBox.innerHTML = '<span class="text-slate-500">등록된 내역이 없습니다.</span>';
       } else {
         const sectorMap = {};
+        // 통화 단위가 다를 경우 간이 환율(1400) 가중치로 비중 환산
+        let totalWeightBase = 0;
         portfolio.forEach((item) => {
-          const evalAmt = (item.currentPrice ?? item.price) * item.quantity;
+          const cur = detectCurrency(item.code, item.currency);
+          const factor = cur === 'USD' ? 1400 : 1;
+          const evalAmt = (item.currentPrice ?? item.price) * item.quantity * factor;
           sectorMap[item.sector] = (sectorMap[item.sector] || 0) + evalAmt;
+          totalWeightBase += evalAmt;
         });
 
         const sortedSectors = Object.entries(sectorMap).sort((a, b) => b[1] - a[1]);
         sectorSummaryBox.innerHTML = sortedSectors
           .map(([sec, amt]) => {
-            const ratio = ((amt / totalEvalAmount) * 100).toFixed(1);
+            const ratio = totalWeightBase > 0 ? ((amt / totalWeightBase) * 100).toFixed(1) : '0.0';
             return `<span class="bg-indigo-950/80 text-indigo-300 border border-indigo-800/80 px-2 py-0.5 rounded-md font-medium">${escapeHtml(sec)} ${ratio}%</span>`;
           })
           .join('');
@@ -1141,29 +1212,35 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (portfolio.length === 0) {
         portfolioTableBody.innerHTML = `
           <tr>
-            <td colspan="7" class="py-8 text-center text-slate-500 text-sm">
-              아직 등록된 주식 매수 내역이 없습니다. 위 입력창에서 첫 종목을 추가해 보세요!
+            <td colspan="8" class="py-8 text-center text-slate-500 text-sm">
+              아직 등록된 포트폴리오 내역이 없습니다. 위 입력창에서 첫 종목을 추가해 보세요!
             </td>
           </tr>
         `;
         return;
       }
 
+      // 통화별 총 평가액 (통화 내 비중 계산용)
       portfolioTableBody.innerHTML = portfolio
         .map((item) => {
+          const currency = detectCurrency(item.code, item.currency);
           const curPrice = item.currentPrice ?? item.price;
           const buyTotal = item.price * item.quantity;
           const evalTotal = curPrice * item.quantity;
           const profit = evalTotal - buyTotal;
           const profitRate = buyTotal > 0 ? (profit / buyTotal) * 100 : 0;
-          const weight = totalEvalAmount > 0 ? ((evalTotal / totalEvalAmount) * 100).toFixed(1) : '0.0';
+
+          const baseEvalTotal = currency === 'USD' ? usdEval : krwEval;
+          const weight = baseEvalTotal > 0 ? ((evalTotal / baseEvalTotal) * 100).toFixed(1) : '0.0';
 
           const pSign = profit > 0 ? '+' : '';
           const profitColor =
             profit > 0 ? 'text-rose-400' : profit < 0 ? 'text-sky-400' : 'text-slate-400';
 
-          const tickerForFormula = toGoogleFinanceTicker(item.code || item.name);
-          const gfFormula = `=GOOGLEFINANCE("${tickerForFormula}", "price")`;
+          const curBadgeClass =
+            currency === 'USD'
+              ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
+              : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
           return `
             <tr class="hover:bg-slate-800/60 transition">
@@ -1171,39 +1248,31 @@ alter publication supabase_realtime add table public.portfolios;</pre>
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded font-medium">${escapeHtml(item.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(item.name)}</span>
-                  ${item.code ? `<span class="text-[11px] text-emerald-400 font-mono">(${escapeHtml(toGoogleFinanceTicker(item.code))})</span>` : ''}
+                  ${item.code ? `<span class="text-[11px] text-slate-400 font-mono">(${escapeHtml(item.code)})</span>` : ''}
                 </div>
-                <div class="mt-1 flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onclick="copySingleFormula('${escapeHtml(item.code || item.name)}')"
-                    class="text-[10px] font-mono bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-slate-800 px-1.5 py-0.5 rounded transition"
-                    title="클릭하면 이 종목의 GOOGLEFINANCE 수식을 복사합니다"
-                  >
-                    📋 ${escapeHtml(gfFormula)}
-                  </button>
-                  <span class="text-[11px] text-slate-500">${escapeHtml(item.date)}</span>
-                </div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(item.date)}</div>
               </td>
-              <td class="py-3 px-2.5 text-right text-slate-300">${Number(item.price).toLocaleString('ko-KR')}원</td>
+              <td class="py-3 px-2.5 text-center">
+                <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
+              </td>
+              <td class="py-3 px-2.5 text-right text-slate-300 font-mono">${formatAmountPlain(item.price, currency)}</td>
               <td class="py-3 px-2.5 text-right">
                 <input
                   type="number"
-                  min="1"
+                  min="0.0001"
                   step="any"
                   value="${curPrice}"
                   onchange="updateCurrentPrice('${item.id}', this.value)"
-                  class="w-24 sm:w-28 text-right text-xs px-2 py-1 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  title="현재가를 수정하면 수익률이 자동 계산됩니다"
+                  class="w-24 sm:w-28 text-right text-xs font-mono px-2 py-1 rounded border border-indigo-700/70 bg-slate-800 text-amber-300 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
-              <td class="py-3 px-2.5 text-right text-slate-300">${Number(item.quantity).toLocaleString('ko-KR')}주</td>
-              <td class="py-3 px-2.5 text-right font-semibold text-white">
-                <div>${formatKRW(evalTotal)}</div>
-                <div class="text-[11px] text-indigo-400 font-normal">비중 ${weight}%</div>
+              <td class="py-3 px-2.5 text-right text-slate-300 font-mono">${Number(item.quantity).toLocaleString('ko-KR')}</td>
+              <td class="py-3 px-2.5 text-right font-semibold text-white font-mono">
+                <div>${formatAmountPlain(evalTotal, currency)}</div>
+                <div class="text-[11px] text-indigo-400 font-sans font-normal">${weight}%</div>
               </td>
-              <td class="py-3 px-2.5 text-right font-semibold ${profitColor}">
-                <div>${pSign}${formatKRW(profit)}</div>
+              <td class="py-3 px-2.5 text-right font-semibold font-mono ${profitColor}">
+                <div>${pSign}${formatAmountPlain(profit, currency)}</div>
                 <div class="text-[11px]">(${pSign}${profitRate.toFixed(2)}%)</div>
               </td>
               <td class="py-3 px-2.5 text-center">
@@ -1221,7 +1290,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         .join('');
     }
 
-    // 현재가 및 종목코드 개별 업데이트 함수
     window.updateCurrentPrice = async function (id, newPriceStr, optionalCode) {
       const newPrice = parseFloat(newPriceStr);
       if (isNaN(newPrice) || newPrice <= 0) {
@@ -1260,7 +1328,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       renderPortfolio();
     };
 
-    // 구글 시트 GOOGLEFINANCE() 현재가 일괄 동기화 버튼
     googleFinanceFetchBtn.addEventListener('click', async () => {
       if (portfolio.length === 0) {
         alert('먼저 포트폴리오에 종목을 추가해 주세요.');
@@ -1272,7 +1339,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (!rawSheetUrl) {
         sheetGuideBox.classList.remove('hidden');
         alert(
-          '먼저 상단 3단계에 구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)를 입력하고 저장해 주세요.\n\n[📋 내 종목 GOOGLEFINANCE() 수식 표 복사하기] 버튼을 누르면 시트에 붙여넣을 수식을 자동으로 만들어 드립니다!'
+          '먼저 상단 3단계에 구글 시트 공유 링크(또는 웹에 게시 CSV 링크 / Apps Script URL)를 입력하고 저장해 주세요.'
         );
         googleSheetUrlInput.focus();
         return;
@@ -1280,13 +1347,12 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       const origText = googleFinanceFetchBtn.textContent;
       googleFinanceFetchBtn.disabled = true;
-      googleFinanceFetchBtn.textContent = '⏳ GOOGLEFINANCE 시세 동기화 중...';
+      googleFinanceFetchBtn.textContent = '⏳ 동기화 중...';
 
       let successCount = 0;
       const failList = [];
 
       try {
-        // Apps Script 웹앱인 경우 종목별 실시간 GOOGLEFINANCE 호출 지원
         if (rawSheetUrl.includes('script.google.com')) {
           for (const item of portfolio) {
             const query = item.code || item.name;
@@ -1299,11 +1365,10 @@ alter publication supabase_realtime add table public.portfolios;</pre>
             }
           }
         } else {
-          // 구글 시트 CSV/공유 링크에서 일괄 매칭
           const { priceMap } = await fetchGoogleFinancePricesFromSheet();
           for (const item of portfolio) {
             const codeKey = toGoogleFinanceTicker(item.code || '');
-            const strippedKey = codeKey.replace(/^KRX:/, '');
+            const strippedKey = codeKey.replace(/^KRX:|^NASDAQ:|^NYSE:|^AMEX:/, '');
             const nameKey = item.name.trim().toUpperCase();
             const foundPrice =
               priceMap[codeKey] ?? priceMap[strippedKey] ?? priceMap[nameKey];
@@ -1318,24 +1383,24 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         }
 
         if (failList.length === 0) {
-          alert(`구글 시트 GOOGLEFINANCE()에서 총 ${successCount}건의 현재가를 성공적으로 동기화했습니다!`);
+          alert(`총 ${successCount}건의 현재가를 성공적으로 동기화했습니다!`);
         } else {
           alert(
-            `성공: ${successCount}건 / 미매칭: ${failList.length}건 (${failList.join(', ')})\n새로 추가한 종목이 있다면 [📋 시트용 수식 복사]를 눌러 구글 시트에 붙여넣어 주세요.`
+            `성공: ${successCount}건 / 미매칭: ${failList.length}건 (${failList.join(', ')})`
           );
         }
       } catch (err) {
-        alert('GOOGLEFINANCE 동기화 오류: ' + err.message);
+        alert('동기화 오류: ' + err.message);
       } finally {
         googleFinanceFetchBtn.disabled = false;
         googleFinanceFetchBtn.textContent = origText;
       }
     });
 
-    // 종목 추가
     stockForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const date = buyDateInput.value;
+      const currency = marketCurrencyInput.value;
       const sector = sectorInput.value.trim();
       let code = toGoogleFinanceTicker(stockCodeInput.value.trim());
       const name = stockNameInput.value.trim();
@@ -1350,7 +1415,6 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       let currentPrice = !isNaN(curPriceRaw) && curPriceRaw > 0 ? curPriceRaw : null;
 
-      // 현재가를 비워두었고 구글 시트가 연결되어 있으면 시트에서 GOOGLEFINANCE 가격 자동 조회 시도
       if (!currentPrice && (googleSheetUrlInput.value.trim() || localStorage.getItem(STORAGE_KEY_SHEET_URL))) {
         try {
           const res = await fetchGoogleFinancePricesFromSheet(code || name);
@@ -1404,18 +1468,21 @@ alter publication supabase_realtime add table public.portfolios;</pre>
         }
         if (data && data[0]) {
           setLocalPrice(data[0].id, currentPrice);
+          setLocalCurrency(data[0].id, currency);
           if (code) setLocalCode(data[0].id, code);
         }
         await fetchCloudPortfolio();
       } else {
         const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
         setLocalPrice(newId, currentPrice);
+        setLocalCurrency(newId, currency);
         if (code) setLocalCode(newId, code);
         portfolio.unshift({
           id: newId,
           date,
           sector,
           code,
+          currency,
           name,
           price,
           currentPrice,
@@ -1456,25 +1523,17 @@ alter publication supabase_realtime add table public.portfolios;</pre>
       if (portfolio.length === 0) {
         return '현재 등록된 주식 포트폴리오 내역이 없습니다.';
       }
-      const totalBuy = portfolio.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const totalEval = portfolio.reduce(
-        (sum, item) => sum + (item.currentPrice ?? item.price) * item.quantity,
-        0
-      );
-      const totalProfit = totalEval - totalBuy;
-      const totalRate = totalBuy > 0 ? ((totalProfit / totalBuy) * 100).toFixed(2) : '0.00';
-
       const lines = portfolio.map((item, idx) => {
+        const cur = detectCurrency(item.code, item.currency);
         const curPrice = item.currentPrice ?? item.price;
         const buyAmt = item.price * item.quantity;
         const evalAmt = curPrice * item.quantity;
         const profit = evalAmt - buyAmt;
         const profitRate = buyAmt > 0 ? ((profit / buyAmt) * 100).toFixed(2) : '0.00';
-        const ratio = totalEval > 0 ? ((evalAmt / totalEval) * 100).toFixed(1) : '0.0';
-        return `${idx + 1}. [${item.sector}] ${item.name}${item.code ? `(${item.code})` : ''} - 매수단가: ${item.price.toLocaleString()}원, 현재가: ${curPrice.toLocaleString()}원, 수량: ${item.quantity}주, 평가금액: ${evalAmt.toLocaleString()}원 (비중 ${ratio}%), 수익률: ${profitRate}%`;
+        return `${idx + 1}. [${item.sector}/${cur}] ${item.name}${item.code ? `(${item.code})` : ''} - 매수단가: ${cur} ${formatAmountPlain(item.price, cur)}, 현재가: ${cur} ${formatAmountPlain(curPrice, cur)}, 수량: ${item.quantity}, 평가금액: ${cur} ${formatAmountPlain(evalAmt, cur)}, 수익률: ${profitRate}%`;
       });
 
-      return `총 매수금액: ${totalBuy.toLocaleString()}원 / 총 평가금액: ${totalEval.toLocaleString()}원 / 총 수익률: ${totalRate}%\n보유 내역:\n${lines.join('\n')}`;
+      return `보유 내역:\n${lines.join('\n')}`;
     }
 
     function appendMessage(role, text) {
@@ -1504,7 +1563,7 @@ alter publication supabase_realtime add table public.portfolios;</pre>
 
       const portfolioContext = buildPortfolioContextText();
       const systemPrompt = `당신은 친절하고 전문적인 개인 주식 포트폴리오 투자 상담 AI입니다.
-아래 사용자의 현재 포트폴리오 현황(매수가, 현재가, 평가금액, 수익률, 비중)을 참고하여 질문에 알기 쉽게 한국어로 답변해 주세요.
+아래 사용자의 현재 포트폴리오 현황(KRW/USD 통화 구분, 매수가, 현재가, 평가금액, 수익률)을 참고하여 질문에 알기 쉽게 한국어로 답변해 주세요.
 초보 투자자도 이해하기 쉬운 용어를 사용하고, 핵심 내용을 항목별로 깔끔하게 정리해 주세요.
 
 [사용자 포트폴리오 데이터]
