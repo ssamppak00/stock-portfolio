@@ -12,7 +12,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-white">📈 스마트 주식 포트폴리오 & AI 투자 상담</h1>
-        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 실시간 종목 자동완성 및 구글 시트 동기화</p>
+        <p class="text-xs text-slate-400 mt-0.5">한국주식(KRW) · 미국주식(USD) 초고속 종목 자동완성 및 구글 시트 동기화</p>
       </div>
       <!-- Gemini API Key 설정 영역 -->
       <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
@@ -57,7 +57,7 @@
       <div id="sheetGuideBox" class="hidden p-4 bg-black/60 border border-emerald-800/80 text-slate-200 rounded-lg text-xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p class="text-emerald-400 font-bold">
-            ✅ [거래내역] 시트('26/08/15 형식) + [포트폴리오] 시트 자동 집계 + 네이버/야후 파이낸스 종목 자동완성 연동 코드입니다!
+            ✅ [거래내역] 시트('26/08/15 형식) + [포트폴리오] 시트 자동 집계 + 네이버(ac.stock.naver.com)/Yahoo 종목 자동완성 연동 코드입니다!
           </p>
           <button
             id="copyAppsScriptBtn"
@@ -136,59 +136,73 @@ function toShortDateDisplay(isoStr) {
   return norm;
 }
 
-// 국내주식(네이버 금융 자동완성) 및 미국주식(Yahoo Finance 자동완성) 검색
+// 국내주식 &amp; 미국주식 실시간 검색 (네이버 증권 최신 자동완성 API ac.stock.naver.com + Yahoo Finance API)
 function searchStockApi(query, market) {
   var q = String(query || '').trim();
   if (!q) return [];
-  var isKr = market === 'KRW' || /[가-힣]/.test(q) || /^\d+$/.test(q);
   var results = [];
+  var seen = {};
 
-  if (isKr) {
-    try {
-      var naverUrl = 'https://ac.finance.naver.com/ac?q=' + encodeURIComponent(q) + '&amp;target=stock';
-      var resp = UrlFetchApp.fetch(naverUrl, {
-        muteHttpExceptions: true,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
+  // 1) 네이버 증권 통합 자동완성 API (국내주식/ETF 및 해외주식 한글명 검색 모두 지원)
+  try {
+    var naverUrl = 'https://ac.stock.naver.com/ac?q=' + encodeURIComponent(q) + '&amp;target=stock,etf';
+    var resp = UrlFetchApp.fetch(naverUrl, {
+      muteHttpExceptions: true,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': 'https://m.stock.naver.com/'
+      }
+    });
+    if (resp.getResponseCode() === 200) {
       var data = JSON.parse(resp.getContentText());
-      var list = (data &amp;&amp; data.items &amp;&amp; data.items[0]) ? data.items[0] : [];
-      for (var i = 0; i &lt; list.length; i++) {
-        var row = list[i];
-        if (!row || row.length &lt; 2) continue;
-        var a0 = String(row[0] || '').trim();
-        var a1 = String(row[1] || '').trim();
-        var code = /^\d{4}[0-9A-Z]{2}$/.test(a0) ? a0 : a1;
-        var name = (code === a0) ? a1 : a0;
-        var mkt = String(row[2] || 'KRX');
-        if (code &amp;&amp; name) {
-          results.push({ code: code, name: name, exchange: mkt, currency: 'KRW' });
+      var items = (data &amp;&amp; data.items) ? data.items : [];
+      for (var i = 0; i &lt; items.length; i++) {
+        var it = items[i];
+        if (!it) continue;
+        // 신규 포맷: { code: "005930", name: "삼성전자", typeCode: "KOSPI", nationCode: "KOR" }
+        var code = String(it.code || '').trim();
+        var name = String(it.name || '').trim();
+        var nation = String(it.nationCode || 'KOR').toUpperCase();
+        var exch = String(it.typeCode || it.typeName || 'KRX').trim();
+        if (code &amp;&amp; name &amp;&amp; !seen[code]) {
+          seen[code] = true;
+          results.push({
+            code: code.replace(/\.[A-Z]+$/, ''),
+            name: name,
+            exchange: exch,
+            currency: (nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(code)) ? 'KRW' : 'USD'
+          });
         }
       }
-    } catch (_e) {}
-  }
+    }
+  } catch (_e) {}
 
-  if (!isKr || results.length === 0) {
+  // 2) 미국주식 티커/영문 기업명 검색 (Yahoo Finance Auto-complete)
+  if (market === 'USD' || /^[A-Za-z.\s]+$/.test(q) || results.length &lt; 5) {
     try {
       var yahooUrl = 'https://query1.finance.yahoo.com/v1/finance/search?q=' + encodeURIComponent(q) + '&amp;quotesCount=8&amp;newsCount=0';
       var yResp = UrlFetchApp.fetch(yahooUrl, {
         muteHttpExceptions: true,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
       });
-      var yData = JSON.parse(yResp.getContentText());
-      var quotes = (yData &amp;&amp; yData.quotes) ? yData.quotes : [];
-      for (var j = 0; j &lt; quotes.length; j++) {
-        var qt = quotes[j];
-        if (!qt || !qt.symbol) continue;
-        var sym = String(qt.symbol).trim();
-        var nm = String(qt.shortname || qt.longname || sym).trim();
-        var exch = String(qt.exchDisp || qt.exchange || 'US').trim();
-        var isKorSym = /\.(KS|KQ)$/i.test(sym);
-        results.push({
-          code: isKorSym ? sym.replace(/\.(KS|KQ)$/i, '') : sym,
-          name: nm,
-          exchange: exch,
-          currency: isKorSym ? 'KRW' : 'USD'
-        });
+      if (yResp.getResponseCode() === 200) {
+        var yData = JSON.parse(yResp.getContentText());
+        var quotes = (yData &amp;&amp; yData.quotes) ? yData.quotes : [];
+        for (var j = 0; j &lt; quotes.length; j++) {
+          var qt = quotes[j];
+          if (!qt || !qt.symbol) continue;
+          var sym = String(qt.symbol).trim();
+          var isKorSym = /\.(KS|KQ)$/i.test(sym);
+          var cleanSym = isKorSym ? sym.replace(/\.(KS|KQ)$/i, '') : sym;
+          if (seen[cleanSym]) continue;
+          seen[cleanSym] = true;
+          results.push({
+            code: cleanSym,
+            name: String(qt.shortname || qt.longname || cleanSym).trim(),
+            exchange: String(qt.exchDisp || qt.exchange || 'US').trim(),
+            currency: isKorSym ? 'KRW' : 'USD'
+          });
+        }
       }
     } catch (_e2) {}
   }
@@ -196,7 +210,7 @@ function searchStockApi(query, market) {
   return results.slice(0, 10);
 }
 
-// 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 > 0, 평균단가 자동계산) 갱신
+// 거래내역 시트를 시간의 역순 정렬 및 포트폴리오 시트(보유수량 &gt; 0, 평균단가 자동계산) 갱신
 function rebuildPortfolioSheet(tradesSheet, pfSheet, overrideMap) {
   var lastRow = tradesSheet.getLastRow();
   var trades = [];
@@ -444,6 +458,8 @@ function doPost(e) {
         var tData = tradesSheet.getRange(2, 1, tLastRow - 1, 9).getValues();
         for (var u = 0; u &lt; tData.length; u++) {
           if (String(tData[u][0]) === targetTradeId) {
+            if (body.type !== undefined) tradesSheet.getRange(u + 2, 3).setValue(String(body.type).toUpperCase());
+            if (body.currency !== undefined) tradesSheet.getRange(u + 2, 4).setValue(String(body.currency).toUpperCase());
             if (body.price !== undefined) tradesSheet.getRange(u + 2, 8).setValue(Number(body.price));
             if (body.quantity !== undefined) tradesSheet.getRange(u + 2, 9).setValue(Number(body.quantity));
             break;
@@ -578,7 +594,7 @@ function doPost(e) {
           <div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
               <h2 class="text-base font-bold text-white">➕ 매수/매도 내역</h2>
-              <span class="text-xs text-emerald-400">💡 국내주식은 <strong>종목명</strong>(네이버금융), 미국주식은 <strong>티커</strong>(Yahoo/Finnhub)로 자동 검색</span>
+              <span class="text-xs text-emerald-400">⚡ 국내·미국 종목명/약칭/티커 입력 시 즉시 자동완성</span>
             </div>
             <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
@@ -618,7 +634,7 @@ function doPost(e) {
                   id="sector"
                   type="text"
                   list="sectorList"
-                  placeholder="예: 반도체, 기술, 배당"
+                  placeholder="예: 반도체, 기술/IT, 배당"
                   required
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
@@ -628,19 +644,21 @@ function doPost(e) {
                   <option value="배당/금융"></option>
                   <option value="2차전지"></option>
                   <option value="헬스케어"></option>
+                  <option value="자동차/모빌리티"></option>
+                  <option value="방산/조선"></option>
                   <option value="ETF/지수"></option>
                 </datalist>
               </div>
 
-              <!-- 종목번호 / 티커 (미국주식 티커 실시간 자동완성 지원) -->
+              <!-- 종목번호 / 티커 (티커 또는 종목명 입력 시 즉시 자동완성) -->
               <div class="relative">
-                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목번호 / 티커 (미국주식 티커 검색)</label>
+                <label for="stockCode" class="block text-xs font-medium text-slate-400 mb-1">종목번호 / 티커 (티커·종목명 검색)</label>
                 <div class="flex gap-1.5">
                   <input
                     id="stockCode"
                     type="text"
                     autocomplete="off"
-                    placeholder="예: AAPL, TSLA, 005930"
+                    placeholder="예: 005930, AAPL, TSLA, 삼전"
                     required
                     class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
@@ -655,24 +673,24 @@ function doPost(e) {
                 </div>
                 <div
                   id="codeSuggestBox"
-                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-30 max-h-52 overflow-y-auto divide-y divide-slate-800 text-xs"
+                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-indigo-500/70 rounded-lg shadow-2xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-800 text-xs"
                 ></div>
               </div>
 
-              <!-- 종목명 (국내주식 유사 종목명 실시간 자동완성 지원) -->
+              <!-- 종목명 (국내주식 유사종목명/약칭 및 미국주식 한글·영문명 즉시 검색) -->
               <div class="relative">
-                <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명 (국내주식 유사 종목명 검색)</label>
+                <label for="stockName" class="block text-xs font-medium text-slate-400 mb-1">종목명 (국내·미국 유사 종목명 검색)</label>
                 <input
                   id="stockName"
                   type="text"
                   autocomplete="off"
-                  placeholder="예: 삼성전자, 하이닉스, Apple"
+                  placeholder="예: 삼성전자, 삼전, 엔비디아, Apple"
                   required
                   class="w-full text-sm px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <div
                   id="nameSuggestBox"
-                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-30 max-h-52 overflow-y-auto divide-y divide-slate-800 text-xs"
+                  class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-indigo-500/70 rounded-lg shadow-2xl z-30 max-h-60 overflow-y-auto divide-y divide-slate-800 text-xs"
                 ></div>
               </div>
 
@@ -785,7 +803,7 @@ function doPost(e) {
       </div>
     </div>
 
-    <!-- 하단 1: 포트폴리오 테이블 (종목번호 종목명 통화 평균단가 현재가 수량 평가금액 평가손익 섹터) -->
+    <!-- 하단 1: 포트폴리오 테이블 (모든 헤더 중앙정렬: 종목번호 종목명 통화 평균단가 현재가 수량 평가금액 평가손익 섹터) -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
@@ -803,15 +821,15 @@ function doPost(e) {
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-              <th class="py-3 px-4">종목번호</th>
-              <th class="py-3 px-4">종목명</th>
+            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-300 bg-slate-950/60 text-center">
+              <th class="py-3 px-4 text-center">종목번호</th>
+              <th class="py-3 px-4 text-center">종목명</th>
               <th class="py-3 px-4 text-center">통화</th>
-              <th class="py-3 px-4 text-right">평균단가</th>
-              <th class="py-3 px-4 text-right">현재가</th>
-              <th class="py-3 px-4 text-right">수량</th>
-              <th class="py-3 px-4 text-right">평가금액</th>
-              <th class="py-3 px-4 text-right">평가손익</th>
+              <th class="py-3 px-4 text-center">평균단가</th>
+              <th class="py-3 px-4 text-center">현재가</th>
+              <th class="py-3 px-4 text-center">수량</th>
+              <th class="py-3 px-4 text-center">평가금액</th>
+              <th class="py-3 px-4 text-center">평가손익</th>
               <th class="py-3 px-4 text-center">섹터</th>
             </tr>
           </thead>
@@ -820,26 +838,46 @@ function doPost(e) {
       </div>
     </section>
 
-    <!-- 하단 2: 거래내역 시트 기록 테이블 (시간의 역순 기록, 거래일자 '26/08/15 형식, 거래단가/수량 수정 가능) -->
+    <!-- 하단 2: 거래내역 테이블 (모든 헤더 중앙정렬, 콤보박스 및 삭제버튼 지원) -->
     <section class="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg w-full">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
         <div>
-          <h2 class="text-base font-bold text-white">🕒 거래내역</h2>
-          <p class="text-xs text-slate-400 mt-0.5">최신 거래내역이 시간의 역순으로 기록되며, 거래단가와 수량을 수정하면 포트폴리오 평균단가·수량에 즉시 반영됩니다</p>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-white">🕒 거래내역</h2>
+            <span id="tradeCountBadge" class="text-xs px-2.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium">총 0건</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">최신 거래내역이 시간의 역순으로 기록되며, 구분/단가/수량을 수정하거나 콤보박스 및 삭제 버튼으로 관리할 수 있습니다</p>
         </div>
-        <span id="tradeCountBadge" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium self-start sm:self-auto">총 0건</span>
+
+        <!-- 거래내역 선택 콤보박스 + 삭제 버튼 -->
+        <div class="flex flex-wrap items-center gap-2 bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+          <select
+            id="tradeDeleteCombo"
+            class="text-xs px-3 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 min-w-[230px]"
+          >
+            <option value="">삭제할 거래내역을 선택하세요</option>
+          </select>
+          <button
+            id="deleteComboTradeBtn"
+            type="button"
+            class="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3.5 py-1.5 rounded transition whitespace-nowrap"
+          >
+            삭제
+          </button>
+        </div>
       </div>
+
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 bg-slate-950/60">
-              <th class="py-3 px-4">거래일자</th>
+            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-300 bg-slate-950/60 text-center">
+              <th class="py-3 px-4 text-center">거래일자</th>
               <th class="py-3 px-4 text-center">구분</th>
-              <th class="py-3 px-4">섹터/종목 (티커)</th>
+              <th class="py-3 px-4 text-center">섹터/종목 (티커)</th>
               <th class="py-3 px-4 text-center">통화</th>
-              <th class="py-3 px-4 text-right">거래단가 (KRW/USD)</th>
-              <th class="py-3 px-4 text-right">수량 (주)</th>
-              <th class="py-3 px-4 text-right">거래금액 (KRW/USD)</th>
+              <th class="py-3 px-4 text-center">거래단가 (KRW/USD)</th>
+              <th class="py-3 px-4 text-center">수량 (주)</th>
+              <th class="py-3 px-4 text-center">거래금액 (KRW/USD)</th>
               <th class="py-3 px-4 text-center">관리</th>
             </tr>
           </thead>
@@ -855,11 +893,169 @@ function doPost(e) {
     const STORAGE_KEY_OVERRIDES = 'my_stock_overrides_v2';
     const STORAGE_KEY_API_KEY = 'my_gemini_api_key_v1';
     const STORAGE_KEY_SHEET_URL = 'my_google_sheet_finance_url_v1';
-    const STORAGE_KEY_FINNHUB_KEY = 'my_finnhub_api_key_v1';
 
     let trades = [];
     let portfolio = [];
     let autocompleteTimer = null;
+    const searchCache = new Map();
+
+    // =========================================================================
+    // 초고속 0ms 내장 종목 사전 (국내 주요 상장사/ETF + 약칭 + 미국 주요 주식/ETF 한글·영문)
+    // 외부 API 지연 없이 타이핑 즉시(0ms) 우선 매칭 후 실시간 API 결과와 병합됩니다.
+    // =========================================================================
+    const BUILTIN_STOCK_DB = [
+      // 국내 대표 주식 (KOSPI / KOSDAQ) 및 자주 쓰는 약칭(aliases)
+      { code: '005930', name: '삼성전자', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['삼전', '삼성전자보통주'] },
+      { code: '005935', name: '삼성전자우', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['삼전우', '삼성전자우선주'] },
+      { code: '000660', name: 'SK하이닉스', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['하닉', '하이닉스', '에스케이하이닉스'] },
+      { code: '042700', name: '한미반도체', exchange: 'KOSPI', currency: 'KRW', sector: '반도체', aliases: ['한미반'] },
+      { code: '058470', name: '리노공업', exchange: 'KOSDAQ', currency: 'KRW', sector: '반도체', aliases: ['리노'] },
+      { code: '005380', name: '현대차', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차', '현대자동차'] },
+      { code: '005385', name: '현대차우', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차우'] },
+      { code: '005387', name: '현대차2우B', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['현차2우'] },
+      { code: '000270', name: '기아', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['기아차', '기아자동차'] },
+      { code: '012330', name: '현대모비스', exchange: 'KOSPI', currency: 'KRW', sector: '자동차/모빌리티', aliases: ['모비스'] },
+      { code: '373220', name: 'LG에너지솔루션', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['엘앤솔', '엘지엔솔', '엔솔', 'LG엔솔'] },
+      { code: '006400', name: '삼성SDI', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['삼스디', '삼성에스디아이'] },
+      { code: '051910', name: 'LG화학', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['엘화', '엘지화학'] },
+      { code: '005490', name: 'POSCO홀딩스', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['포스코', '포스코홀딩스'] },
+      { code: '003670', name: '포스코퓨처엠', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['퓨처엠', '포스코케미칼'] },
+      { code: '247540', name: '에코프로비엠', exchange: 'KOSDAQ', currency: 'KRW', sector: '2차전지', aliases: ['에코비엠'] },
+      { code: '086520', name: '에코프로', exchange: 'KOSDAQ', currency: 'KRW', sector: '2차전지', aliases: ['에코'] },
+      { code: '066970', name: '엘앤에프', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['L&F'] },
+      { code: '207940', name: '삼성바이오로직스', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['삼바', '삼성바이오'] },
+      { code: '068270', name: '셀트리온', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['셀트'] },
+      { code: '196170', name: '알테오젠', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['알테'] },
+      { code: '326030', name: 'SK바이오팜', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['에스케이바이오팜'] },
+      { code: '000100', name: '유한양행', exchange: 'KOSPI', currency: 'KRW', sector: '헬스케어', aliases: ['유한'] },
+      { code: '141080', name: '리가켐바이오', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['레고켐바이오'] },
+      { code: '028300', name: 'HLB', exchange: 'KOSDAQ', currency: 'KRW', sector: '헬스케어', aliases: ['에이치엘비'] },
+      { code: '035420', name: 'NAVER', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['네이버'] },
+      { code: '035720', name: '카카오', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['카톡'] },
+      { code: '323410', name: '카카오뱅크', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['카뱅'] },
+      { code: '377300', name: '카카오페이', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['카페'] },
+      { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['배그'] },
+      { code: '036570', name: '엔씨소프트', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['엔씨', 'NC소프트'] },
+      { code: '066570', name: 'LG전자', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['엘전', '엘지전자'] },
+      { code: '009150', name: '삼성전기', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['삼전기'] },
+      { code: '018260', name: '삼성에스디에스', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['삼성SDS'] },
+      { code: '277810', name: '레인보우로보틱스', exchange: 'KOSDAQ', currency: 'KRW', sector: '기술/IT', aliases: ['레인보우'] },
+      { code: '454910', name: '두산로보틱스', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: ['두산로보'] },
+      { code: '105560', name: 'KB금융', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['국민은행', '케이비금융'] },
+      { code: '055550', name: '신한지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['신한금융', '신한은행'] },
+      { code: '086790', name: '하나금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['하나금융', '하나은행'] },
+      { code: '316140', name: '우리금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['우리금융', '우리은행'] },
+      { code: '138040', name: '메리츠금융지주', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['메리츠', '메리츠금융'] },
+      { code: '032830', name: '삼성생명', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼생'] },
+      { code: '000810', name: '삼성화재', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼화'] },
+      { code: '005830', name: 'DB손해보험', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['디비손보', 'DB손보'] },
+      { code: '017670', name: 'SK텔레콤', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['SKT', '에스케이텔레콤'] },
+      { code: '030200', name: 'KT', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['케이티'] },
+      { code: '032640', name: 'LG유플러스', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['유플러스', 'LGU+'] },
+      { code: '033780', name: 'KT&G', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['케이티앤지', '담배인삼공사'] },
+      { code: '015760', name: '한국전력', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['한전'] },
+      { code: '012450', name: '한화에어로스페이스', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['한화에어로', '한에어로'] },
+      { code: '064350', name: '현대로템', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['로템'] },
+      { code: '079550', name: 'LIG넥스원', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['넥스원', '엘아이지넥스원'] },
+      { code: '047810', name: '한국항공우주', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['KAI', '카이'] },
+      { code: '329180', name: 'HD현대중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['현대중공업', '현중'] },
+      { code: '009540', name: 'HD한국조선해양', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['한국조선해양'] },
+      { code: '042660', name: '한화오션', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['대우조선해양'] },
+      { code: '010140', name: '삼성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['삼중'] },
+      { code: '034020', name: '두산에너빌리티', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['두에빌', '두산중공업'] },
+      { code: '267260', name: 'HD현대일렉트릭', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['현대일렉트릭'] },
+      { code: '298040', name: '효성중공업', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['효성중'] },
+      { code: '010120', name: 'LS ELECTRIC', exchange: 'KOSPI', currency: 'KRW', sector: '방산/조선', aliases: ['LS일렉트릭', '엘에스일렉트릭'] },
+      { code: '028260', name: '삼성물산', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['삼물'] },
+      { code: '003550', name: 'LG', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['엘지'] },
+      { code: '034730', name: 'SK', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['에스케이'] },
+      { code: '096770', name: 'SK이노베이션', exchange: 'KOSPI', currency: 'KRW', sector: '2차전지', aliases: ['SK이노', '에스케이이노베이션'] },
+      { code: '010950', name: 'S-Oil', exchange: 'KOSPI', currency: 'KRW', sector: '배당/금융', aliases: ['에쓰오일', '에스오일'] },
+      { code: '010130', name: '고려아연', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: [] },
+      { code: '011200', name: 'HMM', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['현대상선'] },
+      { code: '003490', name: '대한항공', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['칼'] },
+      { code: '000720', name: '현대건설', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['현건'] },
+      { code: '028050', name: '삼성E&A', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['삼성엔지니어링'] },
+      { code: '097950', name: 'CJ제일제당', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['제일제당'] },
+      { code: '003230', name: '삼양식품', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['불닭'] },
+      { code: '090430', name: '아모레퍼시픽', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['아모레'] },
+      { code: '259960', name: '크래프톤', exchange: 'KOSPI', currency: 'KRW', sector: '기술/IT', aliases: [] },
+      { code: '352820', name: '하이브', exchange: 'KOSPI', currency: 'KRW', sector: '기타', aliases: ['HYBE', '방탄'] },
+      { code: '035900', name: 'JYP Ent.', exchange: 'KOSDAQ', currency: 'KRW', sector: '기타', aliases: ['JYP', '제이와이피'] },
+      // 국내 주요 ETF (KODEX / TIGER / ACE / SOL)
+      { code: '069500', name: 'KODEX 200', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스200'] },
+      { code: '379800', name: 'KODEX 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스S&P500', 'KODEX 미국S&P500TR'] },
+      { code: '379810', name: 'KODEX 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['코덱스나스닥100', 'KODEX 미국나스닥100TR'] },
+      { code: '360750', name: 'TIGER 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거S&P500', '타이거미국S&P500'] },
+      { code: '133690', name: 'TIGER 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거나스닥100', '타이거미국나스닥100'] },
+      { code: '458730', name: 'TIGER 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타미당', '한국판SCHD', '타이거미국배당'] },
+      { code: '381180', name: 'TIGER 미국필라델피아반도체나스닥', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거필라델피아반도체'] },
+      { code: '381170', name: 'TIGER 미국테크TOP10 INDXX', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['타이거미국테크탑10'] },
+      { code: '360200', name: 'ACE 미국S&P500', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에이스S&P500'] },
+      { code: '367380', name: 'ACE 미국나스닥100', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에이스나스닥100'] },
+      { code: '402970', name: 'ACE 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['에미당'] },
+      { code: '446720', name: 'SOL 미국배당다우존스', exchange: 'ETF', currency: 'KRW', sector: 'ETF/지수', aliases: ['솔미당'] },
+
+      // 미국 대표 주식 & ETF (티커, 영문명, 한글명 모두 검색 가능)
+      { code: 'AAPL', name: 'Apple Inc. (애플)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['애플', 'APPLE'] },
+      { code: 'MSFT', name: 'Microsoft Corp. (마이크로소프트)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['마이크로소프트', '마소', 'MICROSOFT'] },
+      { code: 'NVDA', name: 'NVIDIA Corp. (엔비디아)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['엔비디아', 'NVIDIA'] },
+      { code: 'GOOGL', name: 'Alphabet Inc. Class A (구글)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['구글', '알파벳', 'GOOGLE', 'ALPHABET'] },
+      { code: 'GOOG', name: 'Alphabet Inc. Class C (구글 C)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['구글C', '알파벳C'] },
+      { code: 'AMZN', name: 'Amazon.com Inc. (아마존)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['아마존', 'AMAZON'] },
+      { code: 'META', name: 'Meta Platforms Inc. (메타)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['메타', '페이스북', 'FACEBOOK'] },
+      { code: 'TSLA', name: 'Tesla Inc. (테슬라)', exchange: 'NASDAQ', currency: 'USD', sector: '자동차/모빌리티', aliases: ['테슬라', 'TESLA'] },
+      { code: 'AVGO', name: 'Broadcom Inc. (브로드컴)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['브로드컴', 'BROADCOM'] },
+      { code: 'TSM', name: 'TSMC (대만반도체)', exchange: 'NYSE', currency: 'USD', sector: '반도체', aliases: ['TSMC', '티에스엠씨', '대만반도체'] },
+      { code: 'AMD', name: 'Advanced Micro Devices (AMD)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['에이엠디', '암드'] },
+      { code: 'INTC', name: 'Intel Corp. (인텔)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['인텔', 'INTEL'] },
+      { code: 'MU', name: 'Micron Technology (마이크론)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['마이크론', 'MICRON'] },
+      { code: 'QCOM', name: 'Qualcomm Inc. (퀄컴)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['퀄컴', 'QUALCOMM'] },
+      { code: 'ASML', name: 'ASML Holding NV (ASML)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['에이에스엠엘'] },
+      { code: 'ARM', name: 'Arm Holdings plc (암홀딩스)', exchange: 'NASDAQ', currency: 'USD', sector: '반도체', aliases: ['암홀딩스'] },
+      { code: 'PLTR', name: 'Palantir Technologies (팔란티어)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['팔란티어', 'PALANTIR'] },
+      { code: 'IONQ', name: 'IonQ Inc. (아이온큐)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['아이온큐'] },
+      { code: 'NFLX', name: 'Netflix Inc. (넷플릭스)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['넷플릭스', 'NETFLIX'] },
+      { code: 'ORCL', name: 'Oracle Corp. (오라클)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['오라클', 'ORACLE'] },
+      { code: 'CRM', name: 'Salesforce Inc. (세일즈포스)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['세일즈포스', 'SALESFORCE'] },
+      { code: 'NOW', name: 'ServiceNow Inc. (서비스나우)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['서비스나우'] },
+      { code: 'SNOW', name: 'Snowflake Inc. (스노우플레이크)', exchange: 'NYSE', currency: 'USD', sector: '기술/IT', aliases: ['스노우플레이크'] },
+      { code: 'COIN', name: 'Coinbase Global (코인베이스)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['코인베이스', 'COINBASE'] },
+      { code: 'MSTR', name: 'MicroStrategy Inc. (스트래티지)', exchange: 'NASDAQ', currency: 'USD', sector: '기술/IT', aliases: ['마이크로스트래티지', '스트래티지'] },
+      { code: 'BRK.B', name: 'Berkshire Hathaway Class B (버크셔 해서웨이)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['버크셔', '버크셔해서웨이', 'BRKB'] },
+      { code: 'LLY', name: 'Eli Lilly & Co. (일라이릴리)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['일라이릴리', '릴리'] },
+      { code: 'NVO', name: 'Novo Nordisk (노보노디스크)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['노보노디스크'] },
+      { code: 'UNH', name: 'UnitedHealth Group (유나이티드헬스)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['유나이티드헬스'] },
+      { code: 'JNJ', name: 'Johnson & Johnson (존슨앤드존슨)', exchange: 'NYSE', currency: 'USD', sector: '헬스케어', aliases: ['존슨앤드존슨', '존슨앤존슨'] },
+      { code: 'JPM', name: 'JPMorgan Chase & Co. (JP모건)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['제이피모건', 'JP모건'] },
+      { code: 'V', name: 'Visa Inc. (비자)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['비자', 'VISA'] },
+      { code: 'MA', name: 'Mastercard Inc. (마스터카드)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['마스터카드', 'MASTERCARD'] },
+      { code: 'COST', name: 'Costco Wholesale (코스트코)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['코스트코', 'COSTCO'] },
+      { code: 'WMT', name: 'Walmart Inc. (월마트)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['월마트', 'WALMART'] },
+      { code: 'KO', name: 'Coca-Cola Co. (코카콜라)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['코카콜라', 'COCACOLA'] },
+      { code: 'PEP', name: 'PepsiCo Inc. (펩시코)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['펩시', '펩시코'] },
+      { code: 'MCD', name: "McDonald's Corp. (맥도날드)", exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['맥도날드'] },
+      { code: 'SBUX', name: 'Starbucks Corp. (스타벅스)', exchange: 'NASDAQ', currency: 'USD', sector: '배당/금융', aliases: ['스타벅스', '스벅'] },
+      { code: 'O', name: 'Realty Income Corp. (리얼티인컴)', exchange: 'NYSE', currency: 'USD', sector: '배당/금융', aliases: ['리얼티인컴', 'REALTY INCOME'] },
+      // 미국 대표 ETF
+      { code: 'SPY', name: 'SPDR S&P 500 ETF Trust', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['S&P500', '스파이'] },
+      { code: 'VOO', name: 'Vanguard S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['뱅가드S&P500', '부'] },
+      { code: 'IVV', name: 'iShares Core S&P 500 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['아이셰어즈S&P500'] },
+      { code: 'QQQ', name: 'Invesco QQQ Trust (나스닥100)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['큐큐큐', '나스닥100'] },
+      { code: 'QQQM', name: 'Invesco NASDAQ 100 ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['큐큐큐엠'] },
+      { code: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF (슈드)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['슈드', '미국배당다우존스'] },
+      { code: 'JEPI', name: 'JPMorgan Equity Premium Income ETF (제피)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['제피'] },
+      { code: 'JEPQ', name: 'JPMorgan Nasdaq Equity Premium Income ETF (젭큐)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['젭큐', '제피큐'] },
+      { code: 'TQQQ', name: 'ProShares UltraPro QQQ (나스닥 3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티큐', '티큐큐큐'] },
+      { code: 'SQQQ', name: 'ProShares UltraPro Short QQQ (나스닥 -3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['스큐'] },
+      { code: 'SOXX', name: 'iShares Semiconductor ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['필라델피아반도체'] },
+      { code: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3X (반도체 3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['속슬', '소옥슬'] },
+      { code: 'SOXS', name: 'Direxion Daily Semiconductor Bear 3X (반도체 -3배)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['속스'] },
+      { code: 'TLT', name: 'iShares 20+ Year Treasury Bond ETF (미국장기채)', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티엘티', '미국장기채'] },
+      { code: 'TMF', name: 'Direxion Daily 20+ Year Treasury Bull 3X', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['티엠에프'] },
+      { code: 'NVDL', name: 'GraniteShares 2x Long NVDA Daily ETF', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['엔비디아2배'] },
+      { code: 'TSLL', name: 'Direxion Daily TSLA Bull 2X Shares', exchange: 'ETF', currency: 'USD', sector: 'ETF/지수', aliases: ['테슬라2배'] },
+    ];
 
     // DOM 참조
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -903,6 +1099,8 @@ function doPost(e) {
     const portfolioTableBody = document.getElementById('portfolioTableBody');
     const tradesTableBody = document.getElementById('tradesTableBody');
     const tradeCountBadge = document.getElementById('tradeCountBadge');
+    const tradeDeleteCombo = document.getElementById('tradeDeleteCombo');
+    const deleteComboTradeBtn = document.getElementById('deleteComboTradeBtn');
 
     const chatMessages = document.getElementById('chatMessages');
     const chatForm = document.getElementById('chatForm');
@@ -932,137 +1130,196 @@ function doPost(e) {
       const code = appsScriptCodeBlock.textContent;
       try {
         await navigator.clipboard.writeText(code);
-        alert('✅ 구글 시트 Apps Script 코드가 복사되었습니다!\n구글 시트 [확장 프로그램 > Apps Script]에 붙여넣고 웹 앱으로 배포해 주세요.');
+        alert('✅ 구글 시트 Apps Script 코드가 복사되었습니다!\n구글 시트 [확장 프로그램 > Apps Script]에 붙여넣고 새 버전으로 배포해 주세요.');
       } catch (_err) {
         alert('코드 블록을 마우스로 선택하여 복사(Ctrl+C)해 주세요.');
       }
     });
 
     // =========================================================================
-    // 실시간 종목 검색 & 자동완성 (국내주식: 네이버 금융 AC API / 미국주식: Yahoo Finance & Finnhub API)
+    // 개선된 초고속 종목 검색 엔진 (0ms 내장 사전 + 네이버 ac.stock.naver.com + Yahoo Finance)
     // =========================================================================
-    async function fetchJsonWithCorsFallback(targetUrl) {
-      const proxies = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-      ];
-      for (const url of proxies) {
-        try {
-          const res = await fetch(url);
-          if (res.ok) {
-            return await res.json();
-          }
-        } catch (_err) {
-          // 다음 프록시 시도
-        }
-      }
-      return null;
-    }
-
-    // 1) 국내 주식: 네이버 증권 종목 자동완성 API (https://ac.finance.naver.com/ac?q=...&target=stock)
-    async function searchKoreanStockByNaver(query) {
-      const q = String(query || '').trim();
+    function searchLocalStockDictionary(rawQuery) {
+      const q = String(rawQuery || '').trim().toUpperCase().replace(/\s+/g, '');
       if (!q) return [];
 
-      // (a) 구글 시트 웹앱이 연결되어 있으면 서버사이드 UrlFetchApp 우선 사용 (CORS 없음, 가장 빠름)
-      const sheetUrl = getSheetWebAppUrl();
-      if (sheetUrl && sheetUrl.includes('script.google.com')) {
-        try {
-          const sep = sheetUrl.includes('?') ? '&' : '?';
-          const res = await fetch(`${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=KRW`);
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data?.results) && data.results.length > 0) {
-              return data.results;
-            }
-          }
-        } catch (_e) {}
-      }
+      // 사용자가 이미 보유/거래했던 종목도 로컬 검색 풀에 포함
+      const dynamicPool = [];
+      const seenCodes = new Set();
 
-      // (b) 브라우저 직접/프록시 호출: GET https://ac.finance.naver.com/ac?q=삼전&target=stock
-      const naverAcUrl = `https://ac.finance.naver.com/ac?q=${encodeURIComponent(q)}&target=stock`;
-      const data = await fetchJsonWithCorsFallback(naverAcUrl);
-      const list = data?.items?.[0] || [];
-      const results = [];
-
-      list.forEach((row) => {
-        if (!Array.isArray(row) || row.length < 2) return;
-        const a0 = String(row[0] || '').trim();
-        const a1 = String(row[1] || '').trim();
-        const isFirstCode = /^\d{4}[0-9A-Z]{2}$/.test(a0);
-        const code = isFirstCode ? a0 : a1;
-        const name = isFirstCode ? a1 : a0;
-        const exchange = String(row[2] || 'KRX').trim();
-        if (code && name) {
-          results.push({
-            code,
-            name,
-            exchange,
-            currency: 'KRW',
+      portfolio.forEach((p) => {
+        const cleanCode = formatDisplayStockCode(p.code);
+        if (cleanCode && cleanCode !== '-' && !seenCodes.has(cleanCode)) {
+          seenCodes.add(cleanCode);
+          dynamicPool.push({
+            code: cleanCode,
+            name: p.name,
+            exchange: p.currency === 'USD' ? 'US' : 'KRX',
+            currency: p.currency,
+            sector: p.sector || '',
+            aliases: [],
           });
         }
       });
 
-      return results.slice(0, 8);
+      BUILTIN_STOCK_DB.forEach((item) => {
+        if (!seenCodes.has(item.code)) {
+          seenCodes.add(item.code);
+          dynamicPool.push(item);
+        } else {
+          const existing = dynamicPool.find((d) => d.code === item.code);
+          if (existing) existing.aliases = item.aliases || [];
+        }
+      });
+
+      const exactMatches = [];
+      const prefixMatches = [];
+      const partialMatches = [];
+
+      for (const item of dynamicPool) {
+        const codeUpper = item.code.toUpperCase();
+        const nameUpper = item.name.toUpperCase().replace(/\s+/g, '');
+        const aliasList = (item.aliases || []).map((a) => a.toUpperCase().replace(/\s+/g, ''));
+
+        if (codeUpper === q || nameUpper === q || aliasList.includes(q)) {
+          exactMatches.push(item);
+        } else if (
+          codeUpper.startsWith(q) ||
+          nameUpper.startsWith(q) ||
+          aliasList.some((a) => a.startsWith(q))
+        ) {
+          prefixMatches.push(item);
+        } else if (
+          codeUpper.includes(q) ||
+          nameUpper.includes(q) ||
+          aliasList.some((a) => a.includes(q))
+        ) {
+          partialMatches.push(item);
+        }
+      }
+
+      return [...exactMatches, ...prefixMatches, ...partialMatches].slice(0, 10);
     }
 
-    // 2) 미국 주식: Yahoo Finance Auto-complete (https://query1.finance.yahoo.com/v1/finance/search?q=...) 및 Finnhub API
-    async function searchUsStockByTicker(query) {
-      const q = String(query || '').trim();
-      if (!q) return [];
+    async function fetchWithTimeout(url, timeoutMs = 1800) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (_e) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
-      // (a) 구글 시트 웹앱 경유 조회
+    async function fetchRemoteStockSuggestions(rawQuery) {
+      const q = String(rawQuery || '').trim();
+      if (!q) return [];
+      const cacheKey = q.toUpperCase();
+      if (searchCache.has(cacheKey)) {
+        return searchCache.get(cacheKey);
+      }
+
+      const results = [];
+      const seen = new Set();
+      const addItem = (code, name, exchange, currency) => {
+        const cleanCode = String(code || '').trim().replace(/\.(KS|KQ)$/i, '');
+        const cleanName = String(name || '').trim();
+        if (!cleanCode || !cleanName || seen.has(cleanCode)) return;
+        seen.add(cleanCode);
+        results.push({
+          code: cleanCode,
+          name: cleanName,
+          exchange: exchange || (currency === 'USD' ? 'US' : 'KRX'),
+          currency: currency || (/^\d{4}[0-9A-Z]{2}$/.test(cleanCode) ? 'KRW' : 'USD'),
+        });
+      };
+
+      // 1) 구글 시트 Apps Script 웹앱이 연결되어 있으면 서버사이드 검색 최우선 호출
       const sheetUrl = getSheetWebAppUrl();
       if (sheetUrl && sheetUrl.includes('script.google.com')) {
-        try {
-          const sep = sheetUrl.includes('?') ? '&' : '?';
-          const res = await fetch(`${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=USD`);
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data?.results) && data.results.length > 0) {
-              return data.results;
-            }
-          }
-        } catch (_e) {}
+        const sep = sheetUrl.includes('?') ? '&' : '?';
+        const data = await fetchWithTimeout(
+          `${sheetUrl}${sep}search=${encodeURIComponent(q)}&market=${encodeURIComponent(marketCurrencyInput.value)}`,
+          2000
+        );
+        if (Array.isArray(data?.results) && data.results.length > 0) {
+          data.results.forEach((r) => addItem(r.code, r.name, r.exchange, r.currency));
+          searchCache.set(cacheKey, results);
+          return results;
+        }
       }
 
-      // (b) Finnhub API 키가 등록된 경우: GET https://finnhub.io/api/v1/search?q=AAPL&token=YOUR_API_KEY
-      const finnhubToken = localStorage.getItem(STORAGE_KEY_FINNHUB_KEY) || '';
-      if (finnhubToken) {
-        try {
-          const fhUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${encodeURIComponent(finnhubToken)}`;
-          const fhRes = await fetch(fhUrl);
-          if (fhRes.ok) {
-            const fhData = await fhRes.json();
-            if (Array.isArray(fhData?.result) && fhData.result.length > 0) {
-              return fhData.result.slice(0, 8).map((item) => ({
-                code: String(item.symbol || '').trim(),
-                name: String(item.description || item.symbol || '').trim(),
-                exchange: String(item.type || 'US').trim(),
-                currency: 'USD',
-              }));
-            }
-          }
-        } catch (_e2) {}
-      }
+      // 2) 최신 네이버 증권 자동완성 API (https://ac.stock.naver.com/ac?q=...&target=stock,etf)
+      const naverTargetUrl = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(q)}&target=stock,etf`;
+      const isEnglishTicker = /^[A-Za-z.]{1,10}$/.test(q);
+      const yahooTargetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
 
-      // (c) Yahoo Finance Query Auto-complete: GET https://query1.finance.yahoo.com/v1/finance/search?q=TSLA
-      const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
-      const yData = await fetchJsonWithCorsFallback(yahooUrl);
-      const quotes = yData?.quotes || [];
-      return quotes
-        .filter((qt) => qt && qt.symbol)
-        .map((qt) => {
+      // 병렬 프록시 호출로 지연 최소화
+      const parseNaverData = (nData) => {
+        const items = nData?.items || [];
+        items.forEach((it) => {
+          if (it && typeof it === 'object' && !Array.isArray(it)) {
+            const nation = String(it.nationCode || 'KOR').toUpperCase();
+            const code = String(it.code || '').trim();
+            const cur = nation === 'KOR' || /^\d{4}[0-9A-Z]{2}$/.test(code) ? 'KRW' : 'USD';
+            addItem(code, it.name, it.typeCode || it.typeName || 'KRX', cur);
+          }
+        });
+      };
+
+      const parseYahooData = (yData) => {
+        const quotes = yData?.quotes || [];
+        quotes.forEach((qt) => {
+          if (!qt || !qt.symbol) return;
           const sym = String(qt.symbol).trim();
           const isKor = /\.(KS|KQ)$/i.test(sym);
-          return {
-            code: isKor ? sym.replace(/\.(KS|KQ)$/i, '') : sym,
-            name: String(qt.shortname || qt.longname || sym).trim(),
-            exchange: String(qt.exchDisp || qt.exchange || 'US').trim(),
-            currency: isKor ? 'KRW' : 'USD',
-          };
-        })
-        .slice(0, 8);
+          addItem(
+            sym,
+            qt.shortname || qt.longname || sym,
+            qt.exchDisp || qt.exchange || 'US',
+            isKor ? 'KRW' : 'USD'
+          );
+        });
+      };
+
+      const tasks = [
+        fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(naverTargetUrl)}`, 1800).then(
+          (d) => d && parseNaverData(d)
+        ),
+        fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(naverTargetUrl)}`, 1800).then(
+          (d) => d && parseNaverData(d)
+        ),
+      ];
+
+      if (isEnglishTicker || marketCurrencyInput.value === 'USD') {
+        tasks.push(
+          fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooTargetUrl)}`, 1800).then(
+            (d) => d && parseYahooData(d)
+          )
+        );
+      }
+
+      await Promise.allSettled(tasks);
+      if (results.length > 0) {
+        searchCache.set(cacheKey, results);
+      }
+      return results.slice(0, 10);
+    }
+
+    function mergeStockResults(localItems, remoteItems) {
+      const merged = [];
+      const seen = new Set();
+      [...localItems, ...remoteItems].forEach((item) => {
+        const key = String(item.code || '').toUpperCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        merged.push(item);
+      });
+      return merged.slice(0, 10);
     }
 
     function renderSuggestionDropdown(boxEl, items) {
@@ -1078,16 +1335,17 @@ function doPost(e) {
           <button
             type="button"
             data-code="${escapeHtml(item.code)}"
-            data-name="${escapeHtml(item.name)}"
+            data-name="${escapeHtml(item.name.replace(/\s*\([^)]+\)\s*$/, ''))}"
             data-currency="${escapeHtml(item.currency)}"
-            class="suggest-item-btn w-full text-left px-3 py-2 hover:bg-indigo-950/80 flex items-center justify-between gap-2 transition"
+            data-sector="${escapeHtml(item.sector || '')}"
+            class="suggest-item-btn w-full text-left px-3 py-2 hover:bg-indigo-950/90 flex items-center justify-between gap-2 transition"
           >
             <div class="truncate">
               <span class="font-bold text-white">${escapeHtml(item.name)}</span>
-              <span class="text-slate-400 font-mono ml-1.5">(${escapeHtml(item.code)})</span>
+              <span class="text-emerald-400 font-mono font-semibold ml-1.5">${escapeHtml(item.code)}</span>
             </div>
-            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-emerald-300 border border-slate-700 whitespace-nowrap">
-              ${escapeHtml(item.exchange || item.currency)}
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+              ${escapeHtml(item.exchange || item.currency)} · ${escapeHtml(item.currency)}
             </span>
           </button>
         `
@@ -1101,22 +1359,23 @@ function doPost(e) {
           const selectedCode = btn.getAttribute('data-code') || '';
           const selectedName = btn.getAttribute('data-name') || '';
           const selectedCur = btn.getAttribute('data-currency') || 'KRW';
+          const selectedSector = btn.getAttribute('data-sector') || '';
 
           stockCodeInput.value = formatDisplayStockCode(selectedCode);
           stockNameInput.value = selectedName;
           marketCurrencyInput.value = selectedCur;
 
-          // 기존 보유종목에 섹터가 있으면 자동 완성
           const gfKey = toGoogleFinanceTicker(selectedCode);
           const existing = portfolio.find((p) => p.code === gfKey || p.id === gfKey);
-          if (existing && !sectorInput.value) {
+          if (existing && existing.sector) {
             sectorInput.value = existing.sector;
+          } else if (selectedSector && !sectorInput.value) {
+            sectorInput.value = selectedSector;
           }
 
           codeSuggestBox.classList.add('hidden');
           nameSuggestBox.classList.add('hidden');
 
-          // 구글 시트가 연결되어 있으면 선택 즉시 현재가 조회
           if (getSheetWebAppUrl()) {
             try {
               const priceRes = await fetchSingleTickerPrice(selectedCode);
@@ -1130,60 +1389,63 @@ function doPost(e) {
       });
     }
 
-    // 종목번호 / 티커 입력 시 자동완성 (미국주식 티커 -> Yahoo/Finnhub, 국내 숫자코드/한글 -> 네이버 금융)
-    stockCodeInput.addEventListener('input', () => {
-      const val = stockCodeInput.value.trim();
+    function handleRealtimeAutocomplete(inputEl, targetBoxEl, otherBoxEl) {
+      const val = inputEl.value.trim();
+      otherBoxEl.classList.add('hidden');
       if (!val) {
-        codeSuggestBox.classList.add('hidden');
+        targetBoxEl.classList.add('hidden');
         return;
       }
 
-      const upper = val.toUpperCase();
-      if (upper.startsWith('NASDAQ:') || upper.startsWith('NYSE:') || upper.startsWith('AMEX:') || /^[A-Z]{1,5}$/.test(upper)) {
+      // 1단계: 내장 종목 사전 + 기존 보유종목에서 0ms 즉시 검색 및 표시
+      const localMatches = searchLocalStockDictionary(val);
+      if (localMatches.length > 0) {
+        renderSuggestionDropdown(targetBoxEl, localMatches);
+      }
+
+      // 2단계: 외부 API(구글 시트 Apps Script / 네이버 ac.stock.naver.com / Yahoo Finance) 비동기 병합
+      clearTimeout(autocompleteTimer);
+      autocompleteTimer = setTimeout(async () => {
+        const currentVal = inputEl.value.trim();
+        if (!currentVal || currentVal !== val) return;
+        const remoteMatches = await fetchRemoteStockSuggestions(currentVal);
+        if (inputEl.value.trim() !== currentVal) return;
+        const merged = mergeStockResults(localMatches, remoteMatches);
+        renderSuggestionDropdown(targetBoxEl, merged);
+      }, 150);
+    }
+
+    stockCodeInput.addEventListener('input', () => {
+      const val = stockCodeInput.value.trim().toUpperCase();
+      if (/^[A-Z]{1,5}$/.test(val)) {
         marketCurrencyInput.value = 'USD';
-      } else if (upper.startsWith('KRX:') || upper.startsWith('KOSDAQ:') || /^\d/.test(upper) || /[가-힣]/.test(upper)) {
+      } else if (/^\d/.test(val) || /[가-힣]/.test(val)) {
         marketCurrencyInput.value = 'KRW';
       }
-
-      const tickerKey = toGoogleFinanceTicker(upper);
-      const found = portfolio.find((p) => p.code === tickerKey || p.id === tickerKey);
-      if (found) {
-        if (!stockNameInput.value) stockNameInput.value = found.name;
-        if (!sectorInput.value) sectorInput.value = found.sector;
-      }
-
-      clearTimeout(autocompleteTimer);
-      autocompleteTimer = setTimeout(async () => {
-        const isKoreanQuery = /[가-힣]/.test(val) || /^\d{2,6}$/.test(val);
-        const results = isKoreanQuery
-          ? await searchKoreanStockByNaver(val)
-          : await searchUsStockByTicker(val);
-        renderSuggestionDropdown(codeSuggestBox, results);
-      }, 250);
+      handleRealtimeAutocomplete(stockCodeInput, codeSuggestBox, nameSuggestBox);
     });
 
-    // 종목명 입력 시 자동완성 (국내주식 유사 종목명 -> 네이버 금융 AC API, 영문 기업명 -> Yahoo Finance API)
     stockNameInput.addEventListener('input', () => {
-      const val = stockNameInput.value.trim();
-      if (!val) {
-        nameSuggestBox.classList.add('hidden');
-        return;
-      }
-
-      clearTimeout(autocompleteTimer);
-      autocompleteTimer = setTimeout(async () => {
-        const isKoreanOrKrw = /[가-힣]/.test(val) || marketCurrencyInput.value === 'KRW';
-        let results = isKoreanOrKrw
-          ? await searchKoreanStockByNaver(val)
-          : await searchUsStockByTicker(val);
-        if (results.length === 0 && isKoreanOrKrw) {
-          results = await searchUsStockByTicker(val);
-        }
-        renderSuggestionDropdown(nameSuggestBox, results);
-      }, 250);
+      handleRealtimeAutocomplete(stockNameInput, nameSuggestBox, codeSuggestBox);
     });
 
-    // 외부 클릭 시 자동완성 드롭다운 닫기
+    // 엔터키나 포커스 이동 시 첫 번째 추천 종목 자동 매칭 지원
+    stockNameInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!stockCodeInput.value.trim() && stockNameInput.value.trim()) {
+          const matches = searchLocalStockDictionary(stockNameInput.value.trim());
+          if (matches.length > 0) {
+            stockCodeInput.value = matches[0].code;
+            stockNameInput.value = matches[0].name.replace(/\s*\([^)]+\)\s*$/, '');
+            marketCurrencyInput.value = matches[0].currency;
+            if (matches[0].sector && !sectorInput.value) {
+              sectorInput.value = matches[0].sector;
+            }
+          }
+        }
+      }, 200);
+    });
+
     document.addEventListener('click', (e) => {
       if (!stockCodeInput.contains(e.target) && !codeSuggestBox.contains(e.target)) {
         codeSuggestBox.classList.add('hidden');
@@ -1208,7 +1470,6 @@ function doPost(e) {
       return 'KRW';
     }
 
-    // 천단위 콤마 포맷팅 (KRW는 정수 콤마, USD는 소수점 2자리 콤마)
     function formatAmountPlain(number, currency) {
       const num = Number(number) || 0;
       if (currency === 'USD') {
@@ -1220,7 +1481,6 @@ function doPost(e) {
       return Math.round(num).toLocaleString('ko-KR');
     }
 
-    // 수량 천단위 콤마 포맷팅
     function formatQuantityComma(number) {
       const num = Number(number) || 0;
       return num.toLocaleString('ko-KR', {
@@ -1228,7 +1488,6 @@ function doPost(e) {
       });
     }
 
-    // 모든 형태의 날짜 입력을 YYYY-MM-DD 로 정규화 (정렬 및 계산용)
     function normalizeDateKey(dateVal) {
       if (!dateVal) return '';
       const raw = String(dateVal).trim().replace(/^'+/, '');
@@ -1250,7 +1509,6 @@ function doPost(e) {
       return raw.slice(0, 10);
     }
 
-    // 거래일자를 '26/08/15 형식으로 변환
     function formatShortDate(dateVal) {
       const iso = normalizeDateKey(dateVal);
       const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -1261,7 +1519,6 @@ function doPost(e) {
       return raw ? `'${raw}` : '-';
     }
 
-    // 종목번호 표시용 (KRX:005930 -> 005930, NASDAQ:AAPL -> AAPL)
     function formatDisplayStockCode(rawCode) {
       if (!rawCode) return '-';
       return String(rawCode)
@@ -1333,7 +1590,6 @@ function doPost(e) {
       }
     }
 
-    // 거래내역(trades)을 시간의 역순으로 정렬하고, 티커 기준으로 보유수량 > 0 인 종목만 평균단가로 집계
     function rebuildLocalPortfolioFromTrades() {
       trades = trades.map((t) => ({
         ...t,
@@ -1645,7 +1901,7 @@ function doPost(e) {
       const nameQuery = stockNameInput.value.trim();
 
       if (!codeQuery && !nameQuery) {
-        alert('종목번호/티커(예: AAPL, 005930) 또는 종목명(예: 삼성전자)을 입력해 주세요.');
+        alert('종목번호/티커(예: 005930, AAPL) 또는 종목명(예: 삼성전자, 엔비디아)을 입력해 주세요.');
         stockCodeInput.focus();
         return;
       }
@@ -1655,18 +1911,22 @@ function doPost(e) {
       lookupFormPriceBtn.textContent = '조회중';
 
       try {
-        // 종목번호나 종목명 중 하나가 비어 있으면 공개 API로 먼저 자동완성 매칭
-        if (!codeQuery || !nameQuery) {
-          const searchTarget = codeQuery || nameQuery;
-          const isKr = /[가-힣]/.test(searchTarget) || /^\d+$/.test(searchTarget);
-          const matches = isKr
-            ? await searchKoreanStockByNaver(searchTarget)
-            : await searchUsStockByTicker(searchTarget);
-          if (matches.length > 0) {
-            codeQuery = matches[0].code;
-            stockCodeInput.value = formatDisplayStockCode(matches[0].code);
-            stockNameInput.value = matches[0].name;
-            marketCurrencyInput.value = matches[0].currency;
+        const searchTarget = codeQuery || nameQuery;
+        const localMatches = searchLocalStockDictionary(searchTarget);
+        let bestMatch = localMatches[0] || null;
+
+        if (!bestMatch) {
+          const remoteMatches = await fetchRemoteStockSuggestions(searchTarget);
+          bestMatch = remoteMatches[0] || null;
+        }
+
+        if (bestMatch) {
+          codeQuery = bestMatch.code;
+          stockCodeInput.value = formatDisplayStockCode(bestMatch.code);
+          stockNameInput.value = bestMatch.name.replace(/\s*\([^)]+\)\s*$/, '');
+          marketCurrencyInput.value = bestMatch.currency;
+          if (bestMatch.sector && !sectorInput.value) {
+            sectorInput.value = bestMatch.sector;
           }
         }
 
@@ -1795,10 +2055,10 @@ function doPost(e) {
 
           return `
             <tr class="hover:bg-slate-800/60 transition">
-              <td class="py-3 px-4 font-mono text-slate-300 font-medium whitespace-nowrap">
+              <td class="py-3 px-4 text-center font-mono text-slate-300 font-medium whitespace-nowrap">
                 ${escapeHtml(displayCode)}
               </td>
-              <td class="py-3 px-4 font-semibold text-white whitespace-nowrap">
+              <td class="py-3 px-4 text-center font-semibold text-white whitespace-nowrap">
                 ${escapeHtml(item.name)}
               </td>
               <td class="py-3 px-4 text-center whitespace-nowrap">
@@ -1807,7 +2067,7 @@ function doPost(e) {
               <td class="py-3 px-4 text-right text-slate-200 font-mono font-semibold whitespace-nowrap">
                 ${formatAmountPlain(item.price, currency)}
               </td>
-              <td class="py-3 px-4 text-right whitespace-nowrap">
+              <td class="py-3 px-4 text-center whitespace-nowrap">
                 <input
                   type="text"
                   inputmode="decimal"
@@ -1836,9 +2096,27 @@ function doPost(e) {
         .join('');
     }
 
-    // 거래내역 테이블 렌더링 (시간의 역순, 거래일자 '26/08/15 형식, 거래단가/수량 수정 가능)
+    // 거래내역 테이블 렌더링 (콤보박스 + 삭제 버튼 지원)
     function renderTrades() {
       tradeCountBadge.textContent = `총 ${trades.length}건`;
+
+      // 상단 삭제용 콤보박스 옵션 갱신
+      if (trades.length === 0) {
+        tradeDeleteCombo.innerHTML = '<option value="">삭제할 거래내역이 없습니다</option>';
+      } else {
+        tradeDeleteCombo.innerHTML =
+          '<option value="">삭제할 거래내역을 선택하세요</option>' +
+          trades
+            .map((tr) => {
+              const isSell = tr.type === 'SELL' || tr.type === '매도';
+              const typeText = isSell ? '매도' : '매수';
+              const displayCode = formatDisplayStockCode(tr.code);
+              const cur = detectCurrency(tr.code, tr.currency);
+              return `<option value="${escapeHtml(tr.id)}">[${escapeHtml(formatShortDate(tr.date))}] ${typeText} · ${escapeHtml(tr.name)}(${escapeHtml(displayCode)}) · ${formatAmountPlain(tr.price, cur)} ${cur} × ${formatQuantityComma(tr.quantity)}주</option>`;
+            })
+            .join('');
+      }
+
       if (trades.length === 0) {
         tradesTableBody.innerHTML = `
           <tr>
@@ -1854,33 +2132,47 @@ function doPost(e) {
         .map((tr) => {
           const isSell = tr.type === 'SELL' || tr.type === '매도';
           const currency = detectCurrency(tr.code, tr.currency);
-          const typeBadge = isSell
-            ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-sky-950/90 text-sky-300 border border-sky-700/80">매도</span>'
-            : '<span class="text-xs font-bold px-2.5 py-0.5 rounded bg-rose-950/90 text-rose-300 border border-rose-700/80">매수</span>';
+          const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
+          const displayCode = formatDisplayStockCode(tr.code);
 
-          const curBadgeClass =
+          const typeSelectClass = isSell
+            ? 'bg-sky-950/90 text-sky-300 border-sky-700/80'
+            : 'bg-rose-950/90 text-rose-300 border-rose-700/80';
+
+          const curSelectClass =
             currency === 'USD'
               ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
               : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
 
-          const totalAmt = (Number(tr.price) || 0) * (Number(tr.quantity) || 0);
-          const displayCode = formatDisplayStockCode(tr.code);
-
           return `
             <tr class="hover:bg-slate-800/50 transition">
-              <td class="py-2.5 px-4 text-slate-300 font-mono text-xs whitespace-nowrap">${escapeHtml(formatShortDate(tr.date))}</td>
-              <td class="py-2.5 px-4 text-center whitespace-nowrap">${typeBadge}</td>
-              <td class="py-2.5 px-4">
-                <div class="flex items-center gap-2 flex-wrap">
+              <td class="py-2.5 px-4 text-center text-slate-300 font-mono text-xs whitespace-nowrap">${escapeHtml(formatShortDate(tr.date))}</td>
+              <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                <select
+                  onchange="updateTradeField('${escapeHtml(tr.id)}', 'type', this.value)"
+                  class="text-xs font-bold px-2.5 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${typeSelectClass}"
+                >
+                  <option value="BUY" ${!isSell ? 'selected' : ''}>매수</option>
+                  <option value="SELL" ${isSell ? 'selected' : ''}>매도</option>
+                </select>
+              </td>
+              <td class="py-2.5 px-4 text-center">
+                <div class="inline-flex items-center justify-center gap-2 flex-wrap">
                   <span class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">${escapeHtml(tr.sector)}</span>
                   <span class="font-semibold text-white">${escapeHtml(tr.name)}</span>
                   ${tr.code ? `<span class="text-xs text-slate-400 font-mono">(${escapeHtml(displayCode)})</span>` : ''}
                 </div>
               </td>
-              <td class="py-2.5 px-4 text-center">
-                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded border ${curBadgeClass}">${currency}</span>
+              <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                <select
+                  onchange="updateTradeField('${escapeHtml(tr.id)}', 'currency', this.value)"
+                  class="text-xs font-mono font-bold px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${curSelectClass}"
+                >
+                  <option value="KRW" ${currency === 'KRW' ? 'selected' : ''}>KRW</option>
+                  <option value="USD" ${currency === 'USD' ? 'selected' : ''}>USD</option>
+                </select>
               </td>
-              <td class="py-2.5 px-4 text-right">
+              <td class="py-2.5 px-4 text-center">
                 <input
                   type="text"
                   inputmode="decimal"
@@ -1889,7 +2181,7 @@ function doPost(e) {
                   class="w-28 sm:w-32 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
-              <td class="py-2.5 px-4 text-right">
+              <td class="py-2.5 px-4 text-center">
                 <input
                   type="text"
                   inputmode="decimal"
@@ -1898,14 +2190,14 @@ function doPost(e) {
                   class="w-20 sm:w-24 text-right text-xs font-mono px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </td>
-              <td class="py-2.5 px-4 text-right font-semibold text-white font-mono">${formatAmountPlain(totalAmt, currency)}</td>
+              <td class="py-2.5 px-4 text-right font-semibold text-white font-mono whitespace-nowrap">${formatAmountPlain(totalAmt, currency)}</td>
               <td class="py-2.5 px-4 text-center whitespace-nowrap">
                 <button
                   type="button"
                   onclick="deleteTradeItem('${escapeHtml(tr.id)}')"
-                  class="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 px-2.5 py-1 rounded transition"
+                  class="text-xs bg-rose-600/90 hover:bg-rose-500 text-white font-semibold px-3 py-1 rounded transition"
                 >
-                  내역삭제
+                  삭제
                 </button>
               </td>
             </tr>
@@ -1913,6 +2205,34 @@ function doPost(e) {
         })
         .join('');
     }
+
+    // 상단 콤보박스에서 선택한 거래내역 삭제 버튼
+    deleteComboTradeBtn.addEventListener('click', () => {
+      const selectedId = tradeDeleteCombo.value;
+      if (!selectedId) {
+        alert('먼저 콤보박스에서 삭제할 거래내역을 선택해 주세요.');
+        tradeDeleteCombo.focus();
+        return;
+      }
+      window.deleteTradeItem(selectedId);
+    });
+
+    // 거래내역 콤보박스(구분/통화) 변경 시 반영
+    window.updateTradeField = async function (tradeId, field, newVal) {
+      trades = trades.map((t) =>
+        String(t.id) === String(tradeId) ? { ...t, [field]: newVal } : t
+      );
+      rebuildLocalPortfolioFromTrades();
+
+      try {
+        const payload = { action: 'updateTrade', id: String(tradeId) };
+        payload[field] = newVal;
+        const resData = await postToGoogleSheet(payload);
+        if (resData) applyRemoteState(resData);
+      } catch (err) {
+        console.warn('구글 시트 거래내역 수정 오류:', err.message);
+      }
+    };
 
     // 거래내역에서 거래단가 또는 수량 수정 시 포트폴리오 평균단가·수량 재계산 및 시트 반영
     window.updateTradeItem = async function (tradeId, field, rawValStr) {
@@ -1978,10 +2298,20 @@ function doPost(e) {
       e.preventDefault();
       const date = normalizeDateKey(buyDateInput.value);
       const type = tradeTypeInput.value;
-      const currency = marketCurrencyInput.value;
       const sector = sectorInput.value.trim();
-      const code = toGoogleFinanceTicker(stockCodeInput.value.trim());
-      const name = stockNameInput.value.trim();
+      let rawCode = stockCodeInput.value.trim();
+      let name = stockNameInput.value.trim();
+
+      // 종목번호나 종목명이 약칭으로 입력된 경우 내장 사전으로 자동 보정
+      const quickMatch = searchLocalStockDictionary(rawCode || name)[0];
+      if (quickMatch && (!/^\d{6}$/.test(rawCode) && !/^[A-Za-z.]+$/.test(rawCode))) {
+        rawCode = quickMatch.code;
+        if (!name) name = quickMatch.name.replace(/\s*\([^)]+\)\s*$/, '');
+        marketCurrencyInput.value = quickMatch.currency;
+      }
+
+      const currency = marketCurrencyInput.value;
+      const code = toGoogleFinanceTicker(rawCode);
       const price = parseFloat(buyPriceInput.value);
       const curPriceRaw = parseFloat(currentPriceInput.value);
       const quantity = parseFloat(quantityInput.value);
