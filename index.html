@@ -924,15 +924,15 @@ function doPost(e) {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-800 text-xs font-semibold text-slate-300 bg-slate-950/60 text-center">
-              <th class="py-3 px-4 text-center">종목번호</th>
-              <th class="py-3 px-4 text-center">종목명</th>
-              <th class="py-3 px-4 text-center">통화</th>
-              <th class="py-3 px-4 text-center">평균단가</th>
-              <th class="py-3 px-4 text-center">현재가</th>
-              <th class="py-3 px-4 text-center">수량</th>
-              <th class="py-3 px-4 text-center">평가금액</th>
-              <th class="py-3 px-4 text-center">평가손익</th>
-              <th class="py-3 px-4 text-center">섹터</th>
+              <th onclick="sortPortfolioBy('code')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">종목번호 <span data-pf-sort-icon="code" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('name')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">종목명 <span data-pf-sort-icon="name" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('currency')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">통화 <span data-pf-sort-icon="currency" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('price')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">평균단가 <span data-pf-sort-icon="price" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('currentPrice')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">현재가 <span data-pf-sort-icon="currentPrice" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('quantity')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">수량 <span data-pf-sort-icon="quantity" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('evalTotal')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">평가금액 <span data-pf-sort-icon="evalTotal" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('profit')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">평가손익 <span data-pf-sort-icon="profit" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortPortfolioBy('sector')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">섹터 <span data-pf-sort-icon="sector" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
             </tr>
           </thead>
           <tbody id="portfolioTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
@@ -973,13 +973,13 @@ function doPost(e) {
                   class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer accent-rose-500"
                 />
               </th>
-              <th class="py-3 px-4 text-center">거래일자</th>
-              <th class="py-3 px-4 text-center">구분</th>
-              <th class="py-3 px-4 text-center">섹터/종목명(티커)</th>
-              <th class="py-3 px-4 text-center">통화</th>
-              <th class="py-3 px-4 text-center">거래단가 (KRW/USD)</th>
-              <th class="py-3 px-4 text-center">수량 (주)</th>
-              <th class="py-3 px-4 text-center">거래금액 (KRW/USD)</th>
+              <th onclick="sortTradesBy('date')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">거래일자 <span data-tr-sort-icon="date" class="text-[10px] text-indigo-400 ml-0.5">▼</span></th>
+              <th onclick="sortTradesBy('type')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">구분 <span data-tr-sort-icon="type" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortTradesBy('name')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">섹터/종목명(티커) <span data-tr-sort-icon="name" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortTradesBy('currency')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">통화 <span data-tr-sort-icon="currency" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortTradesBy('price')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">거래단가 (KRW/USD) <span data-tr-sort-icon="price" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortTradesBy('quantity')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">수량 (주) <span data-tr-sort-icon="quantity" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
+              <th onclick="sortTradesBy('totalAmt')" class="py-3 px-4 text-center cursor-pointer select-none hover:text-indigo-300 transition whitespace-nowrap">거래금액 (KRW/USD) <span data-tr-sort-icon="totalAmt" class="text-[10px] text-slate-500 ml-0.5">↕</span></th>
             </tr>
           </thead>
           <tbody id="tradesTableBody" class="divide-y divide-slate-800/80 text-sm"></tbody>
@@ -2262,12 +2262,158 @@ function doPost(e) {
       }
     });
 
+    let portfolioSort = { key: null, dir: 'asc' };
+    let tradeSort = { key: 'date', dir: 'desc' };
+
+    function updateSortHeaderIcons() {
+      document.querySelectorAll('[data-pf-sort-icon]').forEach((el) => {
+        const key = el.getAttribute('data-pf-sort-icon');
+        if (portfolioSort.key === key) {
+          el.textContent = portfolioSort.dir === 'asc' ? '▲' : '▼';
+          el.className = 'text-[10px] text-indigo-400 ml-0.5 font-bold';
+        } else {
+          el.textContent = '↕';
+          el.className = 'text-[10px] text-slate-500 ml-0.5';
+        }
+      });
+
+      document.querySelectorAll('[data-tr-sort-icon]').forEach((el) => {
+        const key = el.getAttribute('data-tr-sort-icon');
+        if (tradeSort.key === key) {
+          el.textContent = tradeSort.dir === 'asc' ? '▲' : '▼';
+          el.className = 'text-[10px] text-indigo-400 ml-0.5 font-bold';
+        } else {
+          el.textContent = '↕';
+          el.className = 'text-[10px] text-slate-500 ml-0.5';
+        }
+      });
+    }
+
+    window.sortPortfolioBy = function (key) {
+      if (portfolioSort.key === key) {
+        portfolioSort.dir = portfolioSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        portfolioSort.key = key;
+        portfolioSort.dir = ['price', 'currentPrice', 'quantity', 'evalTotal', 'profit'].includes(key)
+          ? 'desc'
+          : 'asc';
+      }
+      renderPortfolio();
+    };
+
+    window.sortTradesBy = function (key) {
+      if (tradeSort.key === key) {
+        tradeSort.dir = tradeSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        tradeSort.key = key;
+        tradeSort.dir = ['date', 'price', 'quantity', 'totalAmt'].includes(key) ? 'desc' : 'asc';
+      }
+      renderTrades();
+    };
+
+    function getSortedPortfolioItems(items) {
+      const list = [...items];
+      if (!portfolioSort.key) return list;
+      const factor = portfolioSort.dir === 'asc' ? 1 : -1;
+
+      return list.sort((a, b) => {
+        const k = portfolioSort.key;
+        if (k === 'code') {
+          return (
+            String(formatDisplayStockCode(a.code)).localeCompare(String(formatDisplayStockCode(b.code)), 'ko') *
+            factor
+          );
+        }
+        if (k === 'name') {
+          return String(a.name || '').localeCompare(String(b.name || ''), 'ko') * factor;
+        }
+        if (k === 'currency') {
+          const ca = detectCurrency(a.code, a.currency);
+          const cb = detectCurrency(b.code, b.currency);
+          return ca.localeCompare(cb) * factor;
+        }
+        if (k === 'price') {
+          return ((Number(a.price) || 0) - (Number(b.price) || 0)) * factor;
+        }
+        if (k === 'currentPrice') {
+          const ca = Number(a.currentPrice ?? a.price) || 0;
+          const cb = Number(b.currentPrice ?? b.price) || 0;
+          return (ca - cb) * factor;
+        }
+        if (k === 'quantity') {
+          return ((Number(a.quantity) || 0) - (Number(b.quantity) || 0)) * factor;
+        }
+        if (k === 'evalTotal') {
+          const ea = (Number(a.currentPrice ?? a.price) || 0) * (Number(a.quantity) || 0);
+          const eb = (Number(b.currentPrice ?? b.price) || 0) * (Number(b.quantity) || 0);
+          return (ea - eb) * factor;
+        }
+        if (k === 'profit') {
+          const pa =
+            ((Number(a.currentPrice ?? a.price) || 0) - (Number(a.price) || 0)) * (Number(a.quantity) || 0);
+          const pb =
+            ((Number(b.currentPrice ?? b.price) || 0) - (Number(b.price) || 0)) * (Number(b.quantity) || 0);
+          return (pa - pb) * factor;
+        }
+        if (k === 'sector') {
+          const sa = lookupSectorByStockCode(a.code, a.sector) || '대체';
+          const sb = lookupSectorByStockCode(b.code, b.sector) || '대체';
+          return String(sa).localeCompare(String(sb), 'ko') * factor;
+        }
+        return 0;
+      });
+    }
+
+    function getSortedTradeItems(items) {
+      const list = [...items];
+      if (!tradeSort.key) return list;
+      const factor = tradeSort.dir === 'asc' ? 1 : -1;
+
+      return list.sort((a, b) => {
+        const k = tradeSort.key;
+        if (k === 'date') {
+          const da = normalizeDateKey(a.date);
+          const db = normalizeDateKey(b.date);
+          if (da !== db) return da.localeCompare(db) * factor;
+          return ((Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)) * factor;
+        }
+        if (k === 'type') {
+          const ta = a.type === 'SELL' || a.type === '매도' ? '매도' : '매수';
+          const tb = b.type === 'SELL' || b.type === '매도' ? '매도' : '매수';
+          return ta.localeCompare(tb, 'ko') * factor;
+        }
+        if (k === 'name') {
+          const na = `${lookupSectorByStockCode(a.code, a.sector) || '대체'} ${a.name || ''}`;
+          const nb = `${lookupSectorByStockCode(b.code, b.sector) || '대체'} ${b.name || ''}`;
+          return na.localeCompare(nb, 'ko') * factor;
+        }
+        if (k === 'currency') {
+          const ca = detectCurrency(a.code, a.currency);
+          const cb = detectCurrency(b.code, b.currency);
+          return ca.localeCompare(cb) * factor;
+        }
+        if (k === 'price') {
+          return ((Number(a.price) || 0) - (Number(b.price) || 0)) * factor;
+        }
+        if (k === 'quantity') {
+          return ((Number(a.quantity) || 0) - (Number(b.quantity) || 0)) * factor;
+        }
+        if (k === 'totalAmt') {
+          const ta = (Number(a.price) || 0) * (Number(a.quantity) || 0);
+          const tb = (Number(b.price) || 0) * (Number(b.quantity) || 0);
+          return (ta - tb) * factor;
+        }
+        return 0;
+      });
+    }
+
     function renderAll() {
       renderPortfolio();
       renderTrades();
     }
 
     function renderPortfolio() {
+      updateSortHeaderIcons();
       const krwItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'KRW');
       const usdItems = portfolio.filter((i) => detectCurrency(i.code, i.currency) === 'USD');
 
@@ -2345,8 +2491,10 @@ function doPost(e) {
         return;
       }
 
+      const sortedPortfolio = getSortedPortfolioItems(portfolio);
+
       // 포트폴리오 표: 종목번호 | 종목명 | 통화 | 평균단가 | 현재가 | 수량 | 평가금액 | 평가손익 | 섹터
-      portfolioTableBody.innerHTML = portfolio
+      portfolioTableBody.innerHTML = sortedPortfolio
         .map((item) => {
           const currency = detectCurrency(item.code, item.currency);
           const curPrice = item.currentPrice ?? item.price;
@@ -2415,6 +2563,7 @@ function doPost(e) {
 
     // 거래내역 테이블 렌더링 (거래일자 앞쪽 선택박스 + 상단 삭제버튼, 관리 열 제거, 섹터/종목명(티커) 왼쪽 정렬)
     function renderTrades() {
+      updateSortHeaderIcons();
       tradeCountBadge.textContent = `총 ${trades.length}건`;
       if (selectAllTradesCheck) {
         selectAllTradesCheck.checked = false;
@@ -2431,7 +2580,9 @@ function doPost(e) {
         return;
       }
 
-      tradesTableBody.innerHTML = trades
+      const sortedTrades = getSortedTradeItems(trades);
+
+      tradesTableBody.innerHTML = sortedTrades
         .map((tr) => {
           const isSell = tr.type === 'SELL' || tr.type === '매도';
           const currency = detectCurrency(tr.code, tr.currency);
